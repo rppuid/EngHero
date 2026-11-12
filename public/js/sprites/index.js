@@ -1,39 +1,29 @@
-// 스프라이트 격자 + 움직임 설정(부위, 펄럭임, 기준점)
-import maru from './maru.js';
-import muji from './muji.js';
-import naru from './naru.js';
+// 스프라이트 만들기: 인물은 장면 단위 동작 그림, 적은 도트 격자 한 장
 import slime from './slime.js';
 import wolf from './wolf.js';
+import tree from './tree.js';
+import mushroom from './mushroom.js';
+import bee from './bee.js';
+import boss_bear from './boss_bear.js';
 import { PixelSprite, hueShift } from '../gfx/pixel.js';
+import { FrameSprite } from '../gfx/frames.js';
 
-// parts: 따로 도는 부위(다각형, 회전축). flutter: 펄럭이는 천(고정된 쪽 anchor). foot: 발 기준점. pts: 효과가 나오는 점
+// foot: 발 기준점. pts: 효과가 나오는 점 (장면 96×96 또는 격자 좌표)
 export const RIGS = {
-  maru: {
-    def: maru, pad: 24, foot: [23, 79],
-    parts: [{ name: 'arm', poly: [[0, 3], [9, 3], [12, 14], [15, 21], [16, 27], [16, 34], [8, 36], [0, 28]], pivot: [15, 29], reach: 34 }],
-    flutter: [{ box: [31, 31, 46, 62], anchor: 'l', amp: 1.6, speed: 5 }],
-    pts: { tip: [4, 6, 'arm'], hand: [11, 28, 'arm'], chest: [22, 30] },
-  },
-  muji: {
-    def: muji, pad: 12, foot: [26, 79],
-    flutter: [
-      { box: [2, 27, 9, 42], anchor: 't', amp: 1.2, speed: 6 },
-      { box: [12, 21, 20, 33], anchor: 't', amp: 1.0, speed: 4 },
-      { box: [38, 22, 46, 35], anchor: 't', amp: 1.0, speed: 4 },
-    ],
-    pts: { tip: [7, 10], hand: [11, 32], chest: [26, 34] },
-  },
-  naru: {
-    def: naru, pad: 16, foot: [22, 81],
-    parts: [{ name: 'bow', poly: [[33, 6], [41, 6], [41, 72], [31, 72], [31, 39], [39, 39], [39, 31], [33, 31]], pivot: [35, 35], reach: 42 }],
-    flutter: [{ box: [2, 38, 12, 62], anchor: 'r', amp: 1.3, speed: 4 }],
-    pts: { tip: [34, 34], hand: [35, 35], chest: [22, 30] },
-  },
-  slime: { def: slime, pad: 8, pts: { chest: [22, 18], mouth: [30, 26] } },
-  wolf: { def: wolf, pad: 10, foot: [56, 63], pts: { chest: [70, 34], mouth: [96, 28] } },
+  maru: { anim: true, pts: { chest: [46, 56], tip: [10, 50] } },
+  muji: { anim: true, pts: { chest: [46, 58], tip: [14, 40] } },
+  naru: { anim: true, pts: { chest: [46, 54], tip: [14, 40] } },
+  slime: { def: slime, pad: 6, pts: { chest: [20, 16], mouth: [32, 21] } },
+  wolf: { def: wolf, pad: 8, foot: [50, 61], pts: { chest: [58, 34], mouth: [84, 30] } },
+  tree: { def: tree, pad: 8, pts: { chest: [44, 50], mouth: [56, 44] } },
+  mushroom: { def: mushroom, pad: 6, foot: [20, 45], pts: { chest: [22, 30], mouth: [34, 30] } },
+  bee: { def: bee, pad: 6, pts: { chest: [26, 26], mouth: [38, 28] } },
+  boss_bear: { def: boss_bear, pad: 8, pts: { chest: [60, 66], mouth: [100, 60] } },
 };
+export const ANIM_IDS = Object.keys(RIGS).filter((k) => RIGS[k].anim);
 
 export function makeSprite(id, opts = {}) {
   const rig = RIGS[id];
+  if (rig.anim) return new FrameSprite(id, rig);
   return new PixelSprite(rig.def, { ...rig, recolor: opts.hue ? hueShift(opts.hue) : null });
 }

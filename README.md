@@ -5,7 +5,7 @@
 
 - 계획: `docs/plan.md`
 - 외부 생성 그림 의뢰: `docs/art-request.md`
-- 지금 들어 있는 것: 전투 한 판 프로토타입 (마루·무지·나루 대 불 늑대와 슬라임 둘)
+- 지금 들어 있는 것: 전투 한 판 프로토타입 (마루·무지·나루 대 불 늑대, 슬라임, 버섯)
 
 ## 실행
 
@@ -25,8 +25,9 @@ python3 -m http.server -d public 8000
 | `public/js/battle/ui.js` | 명령 메뉴, 문장 조립, 이름표, 박자 입력 |
 | `public/js/gfx/` | 도트 합성기, 무대, 카메라, 후처리, 효과 |
 | `public/js/sprites/` | 도트 격자 데이터와 움직임 설정 |
-| `art-src/` | 원본 그림 (설정화·전신·상반신·적) |
-| `tools/sprites.py` | 원본 그림 → 도트 격자 |
+| `art-src/` | 원본 그림 (설정화·전신·상반신·동작·적) |
+| `tools/anim.py` | 인물 동작 그림 → 인물별 도트 한 장 (40색, 또렷한 가장자리) |
+| `tools/sprites.py` | 적 원화 → 도트 격자 |
 | `tools/web_art.py` | 원본 그림 → 배경을 지운 웹용 그림과 얼굴 아이콘 |
 
 도구는 Python 3와 Pillow, numpy, scipy가 필요하다.

@@ -4,7 +4,7 @@ import { clock, tick, tween, tweenReal, wait, waitReal, hitstop, slowmo, E, rnd 
 import { Battle } from './engine.js';
 import { UI } from './ui.js';
 import { ADJ, PREP, SKILLS, ENCOUNTER } from './data.js';
-import { Actor } from '../gfx/actor.js';
+import { Actor, PX } from '../gfx/actor.js';
 import { CameraRig } from '../gfx/camera.js';
 import { makePost } from '../gfx/post.js';
 import { buildStage, SPOTS } from '../gfx/stage.js';
@@ -15,7 +15,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const JOINT = {
   wolf: ['Throw', 'the cold', 'water', 'on the wolf!'],
   slime: ['Cut', 'the little', 'slime', 'right now!'],
-  slimeG: ['Shoot', 'the green', 'slime', 'right now!'],
+  mushroom: ['Burn', 'the red', 'mushroom', 'right now!'],
 };
 const TYPE_COLOR = { cut: 0xbfe9ff, push: 0xffe2a8, jump: 0xfff1c0, burn: 0xff8a3c, freeze: 0x8fdcff, shoot: 0xfff3c0, bite: 0xff6a6a, hit: 0xffffff, joint: 0xffffff };
 
@@ -56,7 +56,7 @@ export class BattleScene {
     const faces = {};
     let open = 0;
     for (const u of this.battle.units) {
-      const a = new Actor(u.sprite || u.kind, { hue: u.hue, scale: u.scale || 1, breath: u.side === 'enemy' ? 0.03 : 0.012 });
+      const a = new Actor(u.sprite || u.kind, { hue: u.hue, scale: (u.scale || 1) * 1.12, breath: u.side === 'enemy' ? 0.03 : 0.012 });
       this.scene.add(a.group); this.actors.set(u.uid, a);
       if (u.side === 'hero') { a.place(V(...SPOTS.party[u.slot])); faces[u.uid] = `assets/art/face/${u.uid}.webp`; }
       else { if (u.spot === 'open') u.openIdx = open++; a.place(this.spotPos(u)); faces[u.uid] = this.thumb(a); }
@@ -77,7 +77,7 @@ export class BattleScene {
 
   frame(now) {
     if (!this.running) return;
-    const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
+    const dt = Math.max(0, Math.min(0.05, (now - this.last) / 1000)); this.last = now;
     tick(dt);
     // 느린 기기: 2초 동안 초당 40장을 못 채우면 해상도를 낮추고, 그래도 느리면 빛 번짐과 그림자를 끈다
     this.fN = (this.fN || 0) + 1; this.fT = (this.fT || 0) + (now - (this.fL || now)); this.fL = now;
@@ -112,7 +112,7 @@ export class BattleScene {
       ui.order(u);
       const st = battle.startTurn(u);
       const a = this.A(u);
-      if (u.side === 'hero' && a.pose.dark) a.set({ dark: 0, tint: null });
+      if (u.side === 'hero' && a.pose.dark) a.set({ dark: 0 });
       await this.playAll(st.ev);
       ui.refresh();
       if (st.skip) { await wait(0.35); continue; }
@@ -120,8 +120,9 @@ export class BattleScene {
         sfx.turn();
         rig.to('wide', 0.5);
         this.fx.aura(a.group.position, 0xffe27a, 8);
-        const stepIn = a.home.clone(); stepIn.x -= 0.45;
-        tween(0.18, (k) => a.group.position.lerpVectors(a.home, stepIn, k), E.outBack);
+        const stepIn = a.home.clone(); stepIn.x -= 0.55;
+        a.play('walk_left', { fps: 12, loop: true });
+        tween(0.22, (k) => a.group.position.lerpVectors(a.home, stepIn, k), E.outQuad).then(() => a.rest());
         const cmd = await ui.command(u, { onTarget: (t) => this.aim(t) });
         if (cmd.defend) await this.playAll(battle.defend(u));
         else await this.heroAct(u, cmd);
@@ -147,6 +148,15 @@ export class BattleScene {
   }
 
   async playAll(ev) { for (const e of ev) await this.handle(e); }
+  syncLook() {
+    for (const u of this.battle.units) {
+      if (!u.alive) continue;
+      const st = u.states; const a = this.A(u);
+      const key = u.charge ? 'charge' : st.has('cold') ? 'cold' : st.has('wet') ? 'wet' : st.has('angry') ? 'angry' : st.has('sleepy') ? 'sleepy' : '';
+      if (a.lookKey === key) continue; a.lookKey = key;
+      a.set({ tint: { charge: [255, 120, 40, 0.35], cold: [150, 215, 255, 0.4], wet: [90, 150, 255, 0.28], angry: [255, 60, 60, 0.3], sleepy: [170, 170, 230, 0.35] }[key] || null });
+    }
+  }
   // 무기가 닿는 순간: 다음 타격 하나와 거기 딸린 결과까지 보여 준다
   async strike() {
     let hit = false;
@@ -181,12 +191,12 @@ export class BattleScene {
     a.idle = false;
     await this[`anim_${s.anim}`](u, cmd, targets);
     await this.flush();
-    a.idle = true; a.set({ lean: 0, sx: 1, sy: 1 }); if (a.rig.parts) a.rig.parts.forEach((p) => a.part(p.name, { rot: 0, dx: 0, dy: 0 }));
+    a.idle = true; a.set({ lean: 0, sx: 1, sy: 1 }); a.rest();
     await wait(0.25);
     ui.shoutOff();
   }
 
-  reach(t) { return (t.sprite.w * 0.5 * (1 / 30)) * t.scale + 1.05; }
+  reach(t) { return (t.framed ? 22 : t.sprite.w * 0.5) * PX * t.scale + 0.75; }
   async dash(a, dest, dur, { hop = 0, ghost = true, ease = E.outQuad } = {}) {
     const from = a.group.position.clone(); let g = 0;
     await tween(dur, (k) => {
@@ -203,26 +213,26 @@ export class BattleScene {
     this.rig.to({ pos: [mx * 0.6 + q.x * 0.25, 3.5, o.dist || 13.2], look: [mx * 0.5 + q.x * 0.4, 1.4, 0], fov: o.fov || 26 }, o.dur || 0.28, E.outCubic);
   }
 
+  // 공격 장면 6장: 0·1 준비, 2 내딛기, 3 내지르기(타격), 4·5 거두기
   async anim_slash(u, cmd, targets) {
     const a = this.A(u);
     for (const tg of targets) {
       if (!tg.alive) continue;
       const t = this.A(tg);
       this.shotOn(a, t);
-      await tween(0.16, (k) => { a.set({ lean: 5 * k, sy: 1 - 0.05 * k }); a.part('arm', { rot: 42 * k }); }, E.outQuad);
-      sfx.dash();
-      a.set({ lean: -5, sy: 1 });
-      await this.dash(a, t.group.position.clone().add(V(this.reach(t), 0, 0.12)), 0.12);
+      a.frame('attack', 0); await wait(0.07); a.frame('attack', 1); a.set({ lean: 2 });
+      await wait(0.11);
+      sfx.dash(); a.frame('attack', 2); a.set({ lean: -2 });
+      await this.dash(a, t.group.position.clone().add(V(this.reach(t) + 0.5, 0, 0.12)), 0.12);
       const hits = cmd.f.T || 1;
       for (let h = 0; h < hits; h++) {
-        const [r0, r1] = h % 2 === 0 ? [42, -118] : [-118, 30];
-        sfx.slash();
-        await tween(0.055, (k) => a.part('arm', { rot: r0 + (r1 - r0) * k }), E.lin);
+        if (h) { a.frame('attack', 2); await wait(0.07); }
+        sfx.slash(); a.frame('attack', 3); a.set({ lean: -3 });
         this.fx.slash(t.center, { rot: h % 2 ? 2.4 : -0.7, size: 2.8 });
         if (!(await this.strike())) break;
         await wait(0.16);
       }
-      await wait(0.08);
+      a.frame('attack', 4); a.set({ lean: 0 }); await wait(0.09); a.frame('attack', 5); await wait(0.05);
     }
     await this.goHome(a);
   }
@@ -230,54 +240,57 @@ export class BattleScene {
   async anim_push(u, cmd, targets) {
     const a = this.A(u); const tg = targets[0]; const t = this.A(tg);
     this.shotOn(a, t);
-    await tween(0.14, (k) => a.set({ lean: 4 * k, sx: 1 - 0.06 * k }), E.outQuad);
-    sfx.dash();
-    a.set({ lean: -7, sx: 1.08 });
-    await this.dash(a, t.group.position.clone().add(V(this.reach(t) - 0.35, 0, 0.12)), 0.11);
-    sfx.whoosh();
+    a.frame('attack', 1); a.set({ lean: 3, sx: 0.95 }); await wait(0.14);
+    sfx.dash(); a.frame('attack', 2); a.set({ lean: -4, sx: 1.06 });
+    await this.dash(a, t.group.position.clone().add(V(this.reach(t) + 0.15, 0, 0.12)), 0.11);
+    sfx.whoosh(); a.frame('attack', 3);
     await this.strike();
-    await wait(0.2);
+    await wait(0.2); a.frame('attack', 5); a.set({ lean: 0, sx: 1 });
     await this.goHome(a);
   }
 
   async anim_jump(u, cmd, targets) {
     const a = this.A(u); const tg = targets[0]; const t = this.A(tg);
-    this.rig.to({ pos: [t.group.position.x * 0.4, 3.0, 14.5], look: [t.group.position.x * 0.5, 2.4, 0], fov: 30 }, 0.3, E.outCubic);
+    this.rig.to({ pos: [t.group.position.x * 0.4, 3.4, 15], look: [t.group.position.x * 0.5, 2.4, 0], fov: 30 }, 0.3, E.outCubic);
+    a.frame('attack', 1);
     await tween(0.16, (k) => a.set({ sy: 1 - 0.14 * k, sx: 1 + 0.08 * k }), E.outQuad);
     sfx.boing();
-    const from = a.group.position.clone(), over = t.group.position.clone().add(V(0.5, 0, 0.14));
-    a.set({ sy: 1.08, sx: 0.94 });
+    const from = a.group.position.clone(), over = t.group.position.clone().add(V(0.9, 0, 0.14));
+    a.frame('victory', 2); a.set({ sy: 1.06, sx: 0.96 });
     let g = 0;
     await tween(0.3, (k) => {
       a.group.position.lerpVectors(from, over, k); a.body.position.y = 4.2 * (1 - (1 - k) ** 2);
-      a.part('arm', { rot: 55 * k }); a.set({ lean: 3 });
       if ((g += clock.dt) > 0.03) { g = 0; this.fx.addGhost(a.ghost(this.scene)); }
     }, E.outQuad);
-    await wait(0.07);
-    sfx.whoosh(); a.set({ lean: -6, sy: 1.12 });
-    await tween(0.075, (k) => { a.body.position.y = 4.2 * (1 - k); a.part('arm', { rot: 55 - 175 * k }); if ((g += clock.dt) > 0.012) { g = 0; this.fx.addGhost(a.ghost(this.scene, 0xfff1c0)); } }, E.inQuad);
-    a.body.position.y = 0; a.set({ sy: 0.86, sx: 1.1 });
-    this.fx.ring(V(over.x - 0.5, 0, over.z), { flat: true, size: 6, color: 0xfff1c0, dur: 0.45 });
-    this.fx.burst(V(over.x - 0.5, 0.2, over.z), 26, { color: 0xd8c39a, speed: 7, life: 0.6, size: 0.12, up: 3 });
+    a.frame('attack', 2); await wait(0.07);
+    sfx.whoosh(); a.frame('attack', 3); a.set({ lean: -3, sy: 1.1 });
+    await tween(0.075, (k) => { a.body.position.y = 4.2 * (1 - k); if ((g += clock.dt) > 0.012) { g = 0; this.fx.addGhost(a.ghost(this.scene, 0xfff1c0)); } }, E.inQuad);
+    a.body.position.y = 0; a.set({ sy: 0.88, sx: 1.08, lean: 0 }); a.frame('attack', 4);
+    this.fx.ring(V(over.x - 0.9, 0, over.z), { flat: true, size: 6, color: 0xfff1c0, dur: 0.45 });
+    this.fx.burst(V(over.x - 0.9, 0.2, over.z), 26, { color: 0xd8c39a, speed: 7, life: 0.6, size: 0.12, up: 3 });
     this.fx.slash(t.center, { rot: -1.5, size: 3.6, color: 0xfff1c0 });
     await this.strike();
     await wait(0.22);
-    a.set({ sy: 1, sx: 1 });
+    a.set({ sy: 1, sx: 1 }); a.frame('attack', 5);
     await this.goHome(a);
   }
 
+  // 마법 준비: 지팡이를 들고 빛을 모은 뒤 내지른다
   async cast(a, color) {
     sfx.charge();
     const tip = () => a.point('tip');
-    let acc = 0;
-    await tween(0.34, (k) => {
-      a.set({ sy: 1 - 0.05 * Math.sin(k * Math.PI), lean: 3 * k }); a.body.position.y = Math.sin(k * Math.PI) * 0.3;
+    let acc = 0; a.frame('attack', 0);
+    await tween(0.36, (k) => {
+      if (k > 0.3) a.frame('attack', 1);
+      a.body.position.y = Math.sin(k * Math.PI) * 0.25;
       if ((acc += clock.dt) > 0.02) { acc = 0; const p = tip(); const an = rnd(0, 6.28); this.fx.p({ x: p.x + Math.cos(an) * 0.9, y: p.y + Math.sin(an) * 0.9, z: p.z }, { x: -Math.cos(an) * 3.5, y: -Math.sin(an) * 3.5 }, { color, life: 0.24, size: 0.1, g: 0, floor: false }); }
     }, E.lin);
-    this.fx.glow(tip(), { size: 1.6, color, dur: 0.3 });
+    a.body.position.y = 0;
+    a.frame('attack', 2); await wait(0.06); a.frame('attack', 3);
+    this.fx.glow(tip(), { size: 1.8, color, dur: 0.3 });
     this.stage.light(color, 8, tip());
-    a.set({ lean: -4, sy: 1.04 }); a.body.position.y = 0;
   }
+  async castEnd(a) { a.frame('attack', 4); await wait(0.1); a.frame('attack', 5); await wait(0.08); a.rest(); }
   async anim_fire(u, cmd, targets) {
     const a = this.A(u); this.shotOn(a, this.A(targets[0]), { dist: 14 });
     await this.cast(a, 0xff8a3c);
@@ -288,6 +301,7 @@ export class BattleScene {
       if (!(await this.strike())) break;
       await wait(0.28);
     }
+    await this.castEnd(a);
   }
   async anim_ice(u, cmd, targets) {
     const a = this.A(u); this.shotOn(a, this.A(targets[0]), { dist: 14 });
@@ -299,6 +313,7 @@ export class BattleScene {
       if (!(await this.strike())) break;
       await wait(0.28);
     }
+    await this.castEnd(a);
   }
   async anim_paint(u, cmd, targets) {
     const a = this.A(u); const col = new THREE.Color(ADJ[cmd.f.X].color).getHex();
@@ -312,23 +327,22 @@ export class BattleScene {
         .then(() => { this.fx.paint(to, col); this.A(tg).flash(0.07); this.rig.shake(0.08); });
     }));
     await this.flush();
-    await wait(0.3);
+    await wait(0.2);
+    await this.castEnd(a);
   }
 
   async anim_arrow(u, cmd, targets) {
     const a = this.A(u); const tg = targets[0]; const t = this.A(tg);
     this.shotOn(a, t, { dist: 13.6 });
     sfx.draw();
-    await tween(0.26, (k) => { a.part('bow', { rot: -9 * k, dx: -2 * k }); a.set({ lean: 3 * k }); }, E.outQuad);
+    a.frame('attack', 0); await wait(0.08); a.frame('attack', 1); await wait(0.09); a.frame('attack', 2); await wait(0.1); a.frame('attack', 3);
     this.fx.glow(a.point('tip'), { size: 0.9, color: 0xfff3c0, dur: 0.25 });
-    await wait(0.1);
-    sfx.arrow();
-    a.part('bow', { rot: 6, dx: 1 }); a.set({ lean: -2 });
-    this.rig.to({ pos: [t.group.position.x * 0.55, 3.4, 12.6], look: [t.group.position.x * 0.7, 1.3, 0], fov: 25 }, 0.16, E.outCubic);
+    await wait(0.14);
+    sfx.arrow(); a.set({ lean: 2 });
+    this.rig.to({ pos: [t.group.position.x * 0.55, 3.6, 13], look: [t.group.position.x * 0.7, 1.2, 0], fov: 25 }, 0.16, E.outCubic);
     await this.fx.arrow(a.point('tip'), t.center, { dur: 0.13 });
     await this.strike();
-    await tween(0.2, (k) => { a.part('bow', { rot: 6 * (1 - k), dx: 1 - k }); a.set({ lean: -2 * (1 - k) }); });
-    await wait(0.15);
+    a.frame('attack', 4); a.set({ lean: 0 }); await wait(0.14); a.frame('attack', 5); await wait(0.1);
   }
   async anim_look(u, cmd, targets) {
     const t = this.A(targets[0]);
@@ -339,7 +353,7 @@ export class BattleScene {
   async anim_hide(u) {
     const a = this.A(u);
     sfx.boing();
-    await tween(0.25, (k) => { a.body.position.y = Math.sin(k * Math.PI) * 0.7; a.set({ sy: 1 - 0.1 * k, dark: 0.45 * k }); });
+    await tween(0.25, (k) => { a.body.position.y = Math.sin(k * Math.PI) * 0.7; a.set({ dark: 0.45 * k }); });
     a.body.position.y = 0;
     this.fx.burst(a.center, 14, { color: 0x86c96a, speed: 4, life: 0.6, size: 0.12, g: 5 });
     await this.flush(); await wait(0.3);
@@ -357,7 +371,8 @@ export class BattleScene {
   }
 
   // ── 판정 결과 하나하나의 연출 ──────────────────────────────
-  async handle(e) {
+  async handle(e) { await this.handle1(e); this.syncLook(); }
+  async handle1(e) {
     const { ui, fx, rig, post } = this;
     const a = e.u && this.A(e.u);
     switch (e.t) {
@@ -378,13 +393,11 @@ export class BattleScene {
         if (!e.silent) { fx.aura(a.group.position, hex, 14); await wait(0.25); }
         if (e.adj === 'small') tween(0.3, (k) => a.body.scale.setScalar(a.scale * (1 - 0.3 * k)), E.outBack);
         if (e.adj === 'big') tween(0.3, (k) => a.body.scale.setScalar(a.scale * (1 + 0.28 * k)), E.outBack);
-        a.set({ tint: e.adj === 'cold' ? [150, 215, 255, 0.4] : e.adj === 'wet' ? [90, 150, 255, 0.28] : e.adj === 'angry' ? [255, 60, 60, 0.3] : e.adj === 'sleepy' ? [170, 170, 230, 0.35] : a.pose.tint });
         break;
       }
       case 'stateOff': {
         ui.refresh();
         if (e.adj === 'small' || e.adj === 'big') tween(0.3, (k) => a.body.scale.setScalar(a.body.scale.x + (a.scale - a.body.scale.x) * k));
-        if (['cold', 'wet', 'angry', 'sleepy'].includes(e.adj)) a.set({ tint: null });
         break;
       }
       case 'move': {
@@ -409,7 +422,7 @@ export class BattleScene {
         tween(0.3, (k) => a.set({ sy: 1 + 0.08 * Math.sin(k * Math.PI) }));
         await wait(0.85); break;
       }
-      case 'charge': { for (let i = 0; i < 4; i++) { fx.aura(a.group.position, 0xff6a2a, 10); await wait(0.1); } a.set({ tint: [255, 120, 40, 0.35] }); break; }
+      case 'charge': { for (let i = 0; i < 4; i++) { fx.aura(a.group.position, 0xff6a2a, 10); await wait(0.1); } break; }
       case 'eattack': await this.enemyAnim(e, a); break;
       default: break;
     }
@@ -442,6 +455,7 @@ export class BattleScene {
     tween(0.07, (k) => { if (a.kbT !== my) return; a.group.position.x = a.home.x + dir * kb * k; a.set({ lean: dir * 5 * k, sx: 1 - 0.08 * k, sy: 1 + 0.06 * k }); }, E.outQuad)
       .then(() => tween(0.3, (k) => { if (a.kbT !== my) return; a.group.position.x = a.home.x + dir * kb * (1 - k); a.set({ lean: dir * 5 * (1 - k), sx: 1 - 0.08 * (1 - k), sy: 1 + 0.06 * (1 - k) }); }, E.outBack))
       .then(() => { if (a.kbT === my && e.u.alive && !e.u.broken) a.idle = true; });
+    if (hero && e.u.alive) a.play('hit', { fps: 8 });
     ui.refresh(); if (hero) ui.heroHurt(e.u);
   }
 
@@ -453,7 +467,7 @@ export class BattleScene {
     fx.ring(a.center, { size: 7, color: 0xbfe9ff, dur: 0.6 }); fx.ring(a.center, { size: 4, color: 0xffffff, dur: 0.4 });
     ui.banner('BREAK!', '방패가 깨졌다'); ui.refresh();
     rig.to(rig.focus(a.center, { dist: 8.2, side: 1.2, fov: 27 }), 0.25, E.outCubic);
-    a.idle = false; a.kbT = (a.kbT || 0) + 1; a.set({ gray: 0.55, lean: -4, sy: 0.93, tint: null });
+    a.idle = false; a.kbT = (a.kbT || 0) + 1; a.set({ gray: 0.55, lean: -4, sy: 0.93 });
     this.jointTarget = e.u;
     await slowmo(0.22, 0.65);
   }
@@ -470,8 +484,9 @@ export class BattleScene {
       await tween(0.4, (k) => { a.body.scale.set(a.scale * (1 + k * 0.5), a.scale * (1 - k), 1); a.shadow.material.opacity = 1 - k; }, E.inQuad);
       a.group.visible = false; if (this.jointTarget === e.u) this.jointTarget = null;
     } else {
-      a.set({ gray: 1, dark: 0.3 });
-      await tween(0.45, (k) => { a.body.rotation.z = -1.45 * k; a.body.position.y = 0.25 * k; }, E.outBack);
+      a.set({ lean: 0, sx: 1, sy: 1 });
+      await a.play('down', { fps: 7, hold: true });
+      a.set({ gray: 0.7, dark: 0.25 });
     }
     ui.refresh(); ui.order(null);
   }
@@ -491,7 +506,6 @@ export class BattleScene {
       if (e.anim === 'hop' && e.u.spot === 'behindRock' && !e.target) this.back = null;
     } else if (e.anim === 'breath') {
       rig.to({ pos: [0.8, 3.8, 15.4], look: [0.8, 1.5, 0], fov: 29 }, 0.3);
-      a.set({ tint: null });
       await tween(0.22, (k) => a.set({ lean: -6 * k, sy: 1 + 0.06 * k }), E.outQuad);
       sfx.fire(); a.set({ lean: 7 });
       const m = a.point('mouth'); let acc = 0;
@@ -538,7 +552,7 @@ export class BattleScene {
     await waitReal(0.45);
     // 마무리: 모두가 한꺼번에 덮친다
     sfx.dash();
-    await Promise.all(heroes.map((h, i) => { const a = this.A(h); a.idle = false; a.set({ lean: -6 }); return this.dash(a, t.group.position.clone().add(V(this.reach(t) + i * 0.5, 0, 0.1 + i * 0.25)), 0.13 + i * 0.03); }));
+    await Promise.all(heroes.map((h, i) => { const a = this.A(h); a.idle = false; a.set({ lean: -6 }); a.frame('attack', 3); return this.dash(a, t.group.position.clone().add(V(this.reach(t) + 0.4 + i * 0.6, 0, 0.1 + i * 0.25)), 0.13 + i * 0.03); }));
     post.u.flash.value = 0.9; hitstop(0.2); sfx.heavy(); sfx.break();
     fx.fire(t.group.position, 1.4); fx.ice(t.group.position, 1.2); fx.ring(t.center, { size: 10, color: 0xffffff, dur: 0.7 });
     fx.slash(t.center, { rot: -0.7, size: 4.5 }); fx.slash(t.center, { rot: 2.4, size: 4.5, color: 0xffe27a });
@@ -546,7 +560,7 @@ export class BattleScene {
     await this.playAll(battle.joint(tg, score));
     slowmo(0.3, 0.5);
     await waitReal(0.7);
-    await Promise.all(heroes.map((h) => { const a = this.A(h); return this.goHome(a).then(() => { a.idle = true; a.set({ lean: 0 }); }); }));
+    await Promise.all(heroes.map((h) => { const a = this.A(h); return this.goHome(a).then(() => { a.idle = true; a.set({ lean: 0 }); a.rest(); }); }));
     ui.shoutOff(); ui.refresh();
     tweenReal(0.3, (k) => { post.u.bars.value = 1 - k; post.u.dim.value = 0.25 * (1 - k); });
     duck(0.22);
@@ -558,7 +572,7 @@ export class BattleScene {
     stopMusic();
     if (res === 'win') {
       sfx.win(); rig.to({ pos: [4.2, 2.6, 10.5], look: [4.1, 1.5, 0], fov: 30 }, 1.0, E.inOut);
-      battle.live('hero').forEach((h, i) => { const a = this.A(h); setTimeout(() => tween(0.5, (k) => { a.body.position.y = Math.abs(Math.sin(k * Math.PI * 2)) * 0.8; }), i * 120); });
+      battle.live('hero').forEach((h, i) => { const a = this.A(h); setTimeout(() => a.play('victory', { fps: 6, loop: true }), i * 120); });
     } else { sfx.lose(); this.post.u.dim.value = 0.5; }
     await waitReal(1.5);
     this.onEnd(res, battle.stats);

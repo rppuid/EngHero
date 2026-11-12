@@ -1,6 +1,8 @@
 // 시작 화면 → 전투 한 판 → 결과
 import { BattleScene } from './battle/scene.js';
 import { GRADES } from './battle/data.js';
+import { preload } from './gfx/frames.js';
+import { ANIM_IDS } from './sprites/index.js';
 import { initAudio, setMuted, isMuted, sfx } from './audio.js';
 
 const $ = (s) => document.querySelector(s);
@@ -14,8 +16,10 @@ gradeBtns.forEach((b) => { b.setAttribute('role', 'radio'); b.onclick = () => { 
 drawGrade();
 
 // 시작 화면 뒤로 무대가 미리 보인다
-let scene = new BattleScene($('#stage'), GRADES[gradeNo], onEnd);
+await preload(ANIM_IDS);
+const scene = new BattleScene($('#stage'), GRADES[gradeNo], onEnd);
 window.__scene = scene;
+$('#start').disabled = false;
 
 function onEnd(res, st) {
   const r = $('#result'); r.hidden = false;

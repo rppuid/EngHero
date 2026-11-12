@@ -11,6 +11,7 @@ export const ADJ = {
   angry: { ko: '화난', color: '#ff4d6a', turns: 3 },
   blue: { ko: '파란', color: '#59c8e8', fixed: true },
   green: { ko: '초록', color: '#7fdc6a', fixed: true },
+  red: { ko: '빨간', color: '#ff6b5e', fixed: true },
 };
 
 // 위치(전치사구). spot은 stage.js의 자리 이름.
@@ -72,12 +73,12 @@ export const ENEMIES = {
     ],
     hurt: { a: 'Mmm!', b: 'Mmmph!' }, broken: { a: '…', b: '…' },
   },
-  slimeG: {
-    name: '초록 슬라임', noun: 'slime', hp: 78, atk: 13, def: 2, spd: 9, shield: 2, scale: 1, sprite: 'slime', hue: 250,
-    weak: ['shoot', 'cold'], resist: ['push'], states: ['green'], fixedStates: ['green'],
+  mushroom: {
+    name: '졸린 버섯', noun: 'mushroom', hp: 86, atk: 12, def: 2, spd: 7, shield: 2, scale: 1,
+    weak: ['burn', 'shoot'], resist: ['freeze'], states: ['red'], fixedStates: ['red'],
     moves: [
-      { id: 'tackle', w: 5, en: { a: 'Jump!', b: 'I will jump on you!' }, ko: '몸통 박치기' },
-      { id: 'sleep', w: 2, en: { a: 'Sleep…', b: 'You are sleepy…' }, ko: '졸음 가루' },
+      { id: 'tackle', w: 4, en: { a: 'Jump!', b: 'I will jump on you!' }, ko: '몸통 박치기' },
+      { id: 'sleep', w: 3, en: { a: 'Sleep…', b: 'You are sleepy…' }, ko: '졸음 가루' },
     ],
     hurt: { a: 'Mmm!', b: 'Mmmph!' }, broken: { a: '…', b: '…' },
   },
@@ -89,7 +90,7 @@ export const ENCOUNTER = {
   enemies: [
     { kind: 'wolf', spot: 'open' },
     { kind: 'slime', spot: 'behindRock' },
-    { kind: 'slimeG', spot: 'nextToTree' },
+    { kind: 'mushroom', spot: 'nextToTree' },
   ],
 };
 

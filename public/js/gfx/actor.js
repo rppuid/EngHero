@@ -36,7 +36,7 @@ export class Actor {
     this.body.scale.setScalar(this.scale);
     this.group = new THREE.Group();
     this.group.add(this.body);
-    const sw = (opts.shadow || sp.w * 0.75) * PX * this.scale;
+    const sw = (opts.shadow || (this.rig.anim ? 44 : sp.w * 0.75)) * PX * this.scale;
     this.shadow = new THREE.Mesh(new THREE.PlaneGeometry(sw, sw * 0.42), new THREE.MeshBasicMaterial({ map: blobTex(), transparent: true, depthWrite: false, opacity: 0.9 }));
     this.shadow.rotation.x = -Math.PI / 2; this.shadow.position.y = 0.02;
     this.group.add(this.shadow);
@@ -46,7 +46,19 @@ export class Actor {
     this.dirty = true;
     this.flashT = 0;
     this.sink = 0; // 물에 잠긴 깊이
+    this.framed = !!this.rig.anim; this.anim = null;
+    if (this.framed) { this.breath = 0; this.play('idle', { loop: true, fps: 5 }); }
   }
+  // 동작 재생. loop가 아니면 끝났을 때 풀리는 약속을 돌려준다. hold: 마지막 장면에서 멈춤
+  play(act, { fps = 10, loop = false, hold = false, from = 0 } = {}) {
+    if (!this.framed) return Promise.resolve();
+    this.anim?.done?.();
+    this.sprite.act = act; this.sprite.fi = from; this.dirty = true;
+    return new Promise((res) => { this.anim = { act, fps, loop, hold, from, t: 0, n: this.sprite.frames[act].length, done: res }; if (loop) res(); });
+  }
+  // 한 장면을 골라 세운다
+  frame(act, i) { if (!this.framed) return; this.anim?.done?.(); this.anim = null; this.sprite.act = act; this.sprite.fi = i; this.dirty = true; }
+  rest() { if (this.framed) this.play('idle', { loop: true, fps: 5 }); }
   get pose() { return this.sprite.pose; }
   place(v) { this.home.copy(v); this.group.position.copy(v); }
   set(p) { Object.assign(this.sprite.pose, p); this.dirty = true; }
@@ -57,11 +69,16 @@ export class Actor {
     const dt = clock.dt;
     this.sprite.time += dt;
     this.acc += dt;
-    if (this.idle) this.sprite.pose.sy = 1 + Math.sin(clock.t * 2.2 + this.phase) * this.breath;
+    if (this.anim) {
+      const an = this.anim; an.t += dt; let i = Math.floor(an.t * an.fps) + (an.from || 0);
+      if (i >= an.n) { if (an.loop) i %= an.n; else { i = an.n - 1; const d = an.done; this.anim = null; d(); if (!an.hold) this.rest(); } }
+      if (this.anim === an && i !== this.sprite.fi) { this.sprite.fi = i; this.dirty = true; }
+    }
+    if (this.idle && this.breath) this.sprite.pose.sy = 1 + Math.sin(clock.t * 2.2 + this.phase) * this.breath;
     const f = this.flashT > 0 ? 1 : 0;
     if (this.flashT > 0) this.flashT -= realDt;
     if (f !== this._f) { this.sprite.pose.flash = f; this._f = f; this.dirty = true; }
-    if (this.acc > 1 / 14 || this.dirty) { // 도트 느낌이 나도록 초당 14번만 다시 찍는다
+    if ((!this.framed && this.acc > 1 / 14) || this.dirty) { // 도트 느낌이 나도록 초당 14번만 다시 찍는다
       if (this.acc > 1 / 14) this.acc = 0;
       this.sprite.render(); this.tex.needsUpdate = true; this.dirty = false;
     }
@@ -80,7 +97,7 @@ export class Actor {
     return this.body.localToWorld(v);
   }
   get center() { return this.point('chest'); }
-  get top() { const v = this.group.position.clone(); v.y += (this.sprite.h * PX + 0.1) * this.scale + this.body.position.y; return v; }
+  get top() { const v = this.group.position.clone(); v.y += ((this.framed ? 78 : this.sprite.h) * PX + 0.1) * this.body.scale.y + this.body.position.y; return v; }
 
   // 잔상: 지금 모습을 복사해 남긴다
   ghost(scene, color = 0x9fd8ff, life = 0.22) {

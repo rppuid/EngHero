@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """전투 도트 스프라이트를 한 번에 만든다. 결과: public/js/sprites/*.js
-인물은 art-src/full(전투 자세 전신 그림), 적은 art-src/enemy에서 옮긴다."""
+적 원화(art-src/enemy)를 도트 격자로 옮긴다. 인물은 동작 그림을 쓰므로 tools/anim.py가 맡는다."""
 import os, sys
 sys.path.insert(0, os.path.dirname(__file__))
 from trace import trace, preview, write_js
 
 JOBS = [  # id, 원본, 세로 칸 수, 색 수, 선명도
-    ("maru", "art-src/full/maru_full.png", 80, 30, 0.8),
-    ("muji", "art-src/full/muji_full.png", 80, 36, 0.7),
-    ("naru", "art-src/full/naru_full.png", 82, 30, 0.8),
-    ("slime", "art-src/enemy/slime.png", 34, 14, 0.6),
-    ("wolf", "art-src/enemy/wolf.png", 64, 20, 0.6),
+    ("slime", "art-src/enemy/slime_full.png", 30, 18, 0.6),
+    ("wolf", "art-src/enemy/wolf_full.png", 62, 28, 0.7),
+    ("tree", "art-src/enemy/tree_full.png", 98, 30, 0.7),
+    ("mushroom", "art-src/enemy/mushroom_full.png", 46, 22, 0.6),
+    ("bee", "art-src/enemy/bee_full.png", 46, 24, 0.7),
+    ("boss_bear", "art-src/enemy/boss_bear_full.png", 112, 32, 0.7),
 ]
 pv = sys.argv[1] if len(sys.argv) > 1 else None
 for sid, src, h, k, sharp in JOBS:
