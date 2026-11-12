@@ -88,6 +88,8 @@ export class BattleScene {
     this.ambient(dt);
     this.fx.update(); this.stage.update();
     this.rig.apply(dt); this.post.update(dt);
+    // 초점은 카메라가 바라보는 곳에 맞춘다
+    const fd = this.rig.cam.position.distanceTo(this.rig.look); this.post.u.focus.value += (fd - this.post.u.focus.value) * Math.min(1, dt * 6); this.post.u.range.value = 2.2 + fd * 0.2;
     this.ui.frame();
     this.post.render();
     requestAnimationFrame((t) => this.frame(t));
