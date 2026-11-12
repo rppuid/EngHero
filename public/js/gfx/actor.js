@@ -42,12 +42,16 @@ export class Actor {
     this.group.add(this.shadow);
     this.home = new THREE.Vector3();
     this.acc = Math.random();
-    this.idle = true; this.breath = opts.breath ?? 0.014; this.phase = Math.random() * 6;
+    this.idle = true; this.phase = Math.random() * 6.28;
+    // 숨쉬기: 대상마다 크기(칸)와 빠르기가 다르고, 시작 시점도 제각각이다
+    const br = this.rig.breath || [1, 1.2];
+    this.breath = br[0] / sp.h; this.breathSpeed = br[1] * (0.9 + Math.random() * 0.2);
+    this.idleFps = (this.rig.idleFps || 2.6) * (0.94 + Math.random() * 0.12);
     this.dirty = true;
     this.flashT = 0;
     this.sink = 0; // 물에 잠긴 깊이
     this.framed = !!this.rig.anim; this.anim = null;
-    if (this.framed) { this.breath = 0; this.play('idle', { loop: true, fps: 5 }); }
+    if (this.framed) { this.breath = 0; this.rest(Math.random() * 4); }
   }
   // 동작 재생. loop가 아니면 끝났을 때 풀리는 약속을 돌려준다. hold: 마지막 장면에서 멈춤
   play(act, { fps = 10, loop = false, hold = false, from = 0 } = {}) {
@@ -58,7 +62,7 @@ export class Actor {
   }
   // 한 장면을 골라 세운다
   frame(act, i) { if (!this.framed) return; this.anim?.done?.(); this.anim = null; this.sprite.act = act; this.sprite.fi = i; this.dirty = true; }
-  rest() { if (this.framed) this.play('idle', { loop: true, fps: 5 }); }
+  rest(offset = 0) { if (!this.framed) return; this.play('idle', { loop: true, fps: this.idleFps }); this.anim.t = offset / this.idleFps; }
   get pose() { return this.sprite.pose; }
   place(v) { this.home.copy(v); this.group.position.copy(v); }
   set(p) { Object.assign(this.sprite.pose, p); this.dirty = true; }
@@ -66,7 +70,7 @@ export class Actor {
   flash(t = 0.09) { this.flashT = t; }
 
   update(realDt) {
-    const dt = clock.dt;
+    const dt = clock.dt; const sp = this.sprite;
     this.sprite.time += dt;
     this.acc += dt;
     if (this.anim) {
@@ -74,11 +78,17 @@ export class Actor {
       if (i >= an.n) { if (an.loop) i %= an.n; else { i = an.n - 1; const d = an.done; this.anim = null; d(); if (!an.hold) this.rest(); } }
       if (this.anim === an && i !== this.sprite.fi) { this.sprite.fi = i; this.dirty = true; }
     }
-    if (this.idle && this.breath) this.sprite.pose.sy = 1 + Math.sin(clock.t * 2.2 + this.phase) * this.breath;
+    if (this.idle && this.breath) {
+      // 한 칸씩 끊어서 움직여야 도트답다: 들이쉬고(길게) 내쉬는(짧게) 모양
+      const ph = (clock.t * this.breathSpeed + this.phase) % 6.28; const wave = ph < 3.9 ? Math.sin((ph / 3.9) * Math.PI) : 0;
+      const sy = 1 + Math.round(wave * this.breath * sp.h) / sp.h;
+      if (sy !== this.sprite.pose.sy) { this.sprite.pose.sy = sy; this.dirty = true; }
+      if (this.rig.hover) this.body.position.y = Math.sin(clock.t * 3.1 + this.phase) * this.rig.hover + this.rig.hover;
+    }
     const f = this.flashT > 0 ? 1 : 0;
     if (this.flashT > 0) this.flashT -= realDt;
     if (f !== this._f) { this.sprite.pose.flash = f; this._f = f; this.dirty = true; }
-    if ((!this.framed && this.acc > 1 / 14) || this.dirty) { // 도트 느낌이 나도록 초당 14번만 다시 찍는다
+    if ((this.rig.flutter && this.acc > 1 / 14) || this.dirty) { // 도트 느낌이 나도록 초당 14번만 다시 찍는다
       if (this.acc > 1 / 14) this.acc = 0;
       this.sprite.render(); this.tex.needsUpdate = true; this.dirty = false;
     }

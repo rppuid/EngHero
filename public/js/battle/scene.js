@@ -56,7 +56,7 @@ export class BattleScene {
     const faces = {};
     let open = 0;
     for (const u of this.battle.units) {
-      const a = new Actor(u.sprite || u.kind, { hue: u.hue, scale: (u.scale || 1) * 1.12, breath: u.side === 'enemy' ? 0.03 : 0.012 });
+      const a = new Actor(u.sprite || u.kind, { hue: u.hue, scale: (u.scale || 1) * 1.12 });
       this.scene.add(a.group); this.actors.set(u.uid, a);
       if (u.side === 'hero') { a.place(V(...SPOTS.party[u.slot])); faces[u.uid] = `assets/art/face/${u.uid}.webp`; }
       else { if (u.spot === 'open') u.openIdx = open++; a.place(this.spotPos(u)); faces[u.uid] = this.thumb(a); }
@@ -207,6 +207,15 @@ export class BattleScene {
     a.body.position.y = 0;
   }
   async goHome(a) { await this.dash(a, a.home, 0.24, { hop: 0.9, ghost: false, ease: E.inOut }); }
+  shotHero(a, dur = 0.3) {
+    const p = a.group.position;
+    return this.rig.to({ pos: [p.x * 0.72 - 0.5, 3.3, 11.6], look: [p.x * 0.8 - 0.6, 1.45, 0], fov: 25 }, dur, E.outCubic);
+  }
+  // 쏜 것을 따라 휙 넘어간다: 두 사람이 다 보이는 구도를 거쳐 대상으로
+  shotFollow(a, t, dur = 0.26) {
+    const q = t.group.position;
+    return this.rig.to({ pos: [q.x * 0.5 + 0.4, 3.7, 13.4], look: [q.x * 0.62, 1.3, 0], fov: 26 }, dur, E.inOut);
+  }
   shotOn(a, t, o = {}) {
     const p = a.group.position, q = t.group.position;
     const mx = (p.x + q.x) / 2;
@@ -277,6 +286,7 @@ export class BattleScene {
 
   // 마법 준비: 지팡이를 들고 빛을 모은 뒤 내지른다
   async cast(a, color) {
+    this.shotHero(a);
     sfx.charge();
     const tip = () => a.point('tip');
     let acc = 0; a.frame('attack', 0);
@@ -292,8 +302,9 @@ export class BattleScene {
   }
   async castEnd(a) { a.frame('attack', 4); await wait(0.1); a.frame('attack', 5); await wait(0.08); a.rest(); }
   async anim_fire(u, cmd, targets) {
-    const a = this.A(u); this.shotOn(a, this.A(targets[0]), { dist: 14 });
+    const a = this.A(u);
     await this.cast(a, 0xff8a3c);
+    await wait(0.12); this.shotFollow(a, this.A(targets.find((t) => t.alive) || targets[0])); await wait(0.2);
     for (const tg of targets) {
       if (!tg.alive) continue; const t = this.A(tg);
       sfx.fire(); this.fx.fire(t.group.position, 1 + cmd.voice * 0.12);
@@ -304,8 +315,9 @@ export class BattleScene {
     await this.castEnd(a);
   }
   async anim_ice(u, cmd, targets) {
-    const a = this.A(u); this.shotOn(a, this.A(targets[0]), { dist: 14 });
+    const a = this.A(u);
     await this.cast(a, 0x8fdcff);
+    await wait(0.12); this.shotFollow(a, this.A(targets.find((t) => t.alive) || targets[0])); await wait(0.2);
     for (const tg of targets) {
       if (!tg.alive) continue; const t = this.A(tg);
       sfx.ice(); this.fx.ice(t.group.position, 1 + cmd.voice * 0.12);
@@ -317,9 +329,8 @@ export class BattleScene {
   }
   async anim_paint(u, cmd, targets) {
     const a = this.A(u); const col = new THREE.Color(ADJ[cmd.f.X].color).getHex();
-    this.shotOn(a, this.A(targets[0]), { dist: 14.5 });
     await this.cast(a, col);
-    sfx.paint();
+    sfx.paint(); this.shotFollow(a, this.A(targets[0]), 0.34);
     const from = a.point('tip');
     await Promise.all(targets.filter((t) => t.alive).map((tg) => {
       const to = this.A(tg).center; const cols = [0xff5a6a, 0xffc23a, 0x5ad36a, 0x4aa8ff, 0xb06aff]; let n = 0;
@@ -333,14 +344,16 @@ export class BattleScene {
 
   async anim_arrow(u, cmd, targets) {
     const a = this.A(u); const tg = targets[0]; const t = this.A(tg);
-    this.shotOn(a, t, { dist: 13.6 });
+    this.shotHero(a, 0.28);
     sfx.draw();
-    a.frame('attack', 0); await wait(0.08); a.frame('attack', 1); await wait(0.09); a.frame('attack', 2); await wait(0.1); a.frame('attack', 3);
-    this.fx.glow(a.point('tip'), { size: 0.9, color: 0xfff3c0, dur: 0.25 });
-    await wait(0.14);
-    sfx.arrow(); a.set({ lean: 2 });
-    this.rig.to({ pos: [t.group.position.x * 0.55, 3.6, 13], look: [t.group.position.x * 0.7, 1.2, 0], fov: 25 }, 0.16, E.outCubic);
-    await this.fx.arrow(a.point('tip'), t.center, { dur: 0.13 });
+    a.frame('attack', 0); await wait(0.1); a.frame('attack', 1); await wait(0.11); a.frame('attack', 2); await wait(0.12); a.frame('attack', 3);
+    this.fx.glow(a.point('tip'), { size: 0.9, color: 0xfff3c0, dur: 0.3 });
+    await wait(0.2);
+    sfx.arrow(); a.set({ lean: 2 }); this.rig.punch(1.2);
+    const from = a.point('tip');
+    this.fx.burst(from, 8, { color: 0xfff3c0, speed: 4, life: 0.25, size: 0.07, g: 0 });
+    this.shotFollow(a, t, 0.24);
+    await this.fx.arrow(from, t.center, { dur: 0.24, arc: 0.25 });
     await this.strike();
     a.frame('attack', 4); a.set({ lean: 0 }); await wait(0.14); a.frame('attack', 5); await wait(0.1);
   }
