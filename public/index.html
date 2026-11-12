@@ -13,6 +13,7 @@
 <canvas id="stage"></canvas>
 <div id="ui" hidden>
   <div id="order"></div>
+  <div id="gauge" data-seg="0" aria-label="언령 게이지"><i></i><b></b><b></b></div>
   <div id="tags"></div>
   <div id="pops"></div>
   <div id="party"></div>
@@ -25,6 +26,9 @@
   <div id="banner" hidden></div>
   <div id="cutin" hidden><img alt=""></div>
   <div id="rhythm" hidden><div class="track"><div class="goal"></div></div><p>박자에 맞춰 누르기</p></div>
+  <div id="chunks" hidden><div class="line"></div><div class="beat"><div class="pulse"></div></div><div class="btns"></div><p>박자에 맞춰 순서대로</p></div>
+  <div id="opening" hidden><div class="box"><h3>선창</h3><div class="timer"><i></i></div><div class="q"></div><div class="dots"></div></div></div>
+  <div id="ultname" hidden></div>
   <div id="keys"></div>
   <div class="top-buttons">
     <button id="btn-sound" type="button" aria-label="소리 켜고 끄기">♪</button>
@@ -48,10 +52,11 @@
   <h2>전투 방법</h2>
   <ul>
     <li><b>기술</b>을 고르면 영어 문장이 열려요. 빈칸을 채우면 그대로 공격이 됩니다.</li>
-    <li><b>목소리</b>를 쓰면 문장이 길어져요. 꾸미는 말이 대상과 맞으면 <b>Perfect</b>.</li>
-    <li>약점을 찌르면 방패가 깎이고, 0이 되면 <b>BREAK</b>와 합동 언령.</li>
+    <li><b>한 마디 더</b>: 목소리를 쓰면 문장이 길어져요. 적의 모습과 맞는 말이면 <b>Perfect</b>.</li>
+    <li>약점을 찌르면 방패가 깎이고, 0이 되면 <b>BREAK</b>.</li>
+    <li>위쪽 <b>언령 게이지</b>가 차면 필살기를 쓸 수 있어요.</li>
   </ul>
-  <p class="keyline">↑↓ 고르기 · ←→ 목소리 · Enter 확인 · Esc 뒤로</p>
+  <p class="keyline">↑↓ ←→ 고르기 · Enter 확인 · Esc 뒤로</p>
   <button id="help-close" type="button">닫기</button>
 </div></div>
 <script type="module" src="js/main.js"></script>

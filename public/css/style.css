@@ -1,8 +1,10 @@
+@font-face { font-family: "Galmuri11"; src: url("../fonts/Galmuri11.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Galmuri11"; src: url("../fonts/Galmuri11-Bold.woff2") format("woff2"); font-weight: 700 900; font-display: swap; }
 :root {
   --ink: #14202a; --panel: rgba(16, 26, 36, .86); --line: rgba(255, 255, 255, .16); --text: #f4f1e6; --dim: #a9b6bd;
   --verb: #ff6b5e; --adj: #5cc0ff; --noun: #ffd24a; --prep: #7fdc6a; --gold: #ffd24a;
-  --font: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
-  --en: "Trebuchet MS", "Segoe UI", "Verdana", var(--font);
+  --font: "Galmuri11", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  --en: "Galmuri11", "Trebuchet MS", "Verdana", sans-serif;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #0c1614; color: var(--text); font-family: var(--font); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
@@ -197,3 +199,73 @@ body.gloss-hover #choices button:hover small, body.gloss-hover #choices button.o
   #banner { font-size: 4em; }
 }
 @media (prefers-reduced-motion: reduce) { .pop, .bubble, #banner, #cutin, #cutin img, #shout span { animation-duration: .01s; } }
+
+/* 도트 글꼴은 또렷하게 */
+body { -webkit-font-smoothing: none; font-smooth: never; text-rendering: optimizeSpeed; letter-spacing: .01em; }
+#sentence, #choices button, .tag .name, #shout, #banner, .pop, .bubble, #cmd .item .en { font-weight: 700; }
+#sentence { font-size: 1.6em; }
+#shout { font-size: 2.4em; }
+#banner { font-size: 5.6em; }
+
+/* 상태 그림 */
+.ico { width: 1.9em; height: 1.9em; image-rendering: pixelated; vertical-align: middle; }
+.tag .weak span .ico { width: 1.2em; height: 1.2em; margin-right: .2em; }
+.hero .hchips { grid-column: 2; min-height: 0; } .hero .hchips .ico { width: 1.4em; height: 1.4em; }
+.pop.hint { font-size: 1.5em; color: #fff3c0; animation: popup 1.6s cubic-bezier(.2, 1.4, .4, 1) forwards; background: rgba(16, 26, 36, .85); border: 2px solid #fff3c0; border-radius: .5em; padding: .1em .5em; text-shadow: none; }
+.pop.hint .ico { width: 1.3em; height: 1.3em; margin-right: .3em; }
+.pop.fx { font-family: var(--font); font-size: 1.05em; color: #ffe27a; animation-name: popup; }
+
+/* 뜻은 기본으로 숨긴다: 틀렸던 낱말, 안내 문구, 마우스를 올렸을 때만 */
+#choices button small, .tag .name small, .bubble small { visibility: hidden; height: 0; overflow: hidden; }
+#choices button.show-ko small, #choices button:hover small, .tag:hover .name small, .bubble:hover small { visibility: visible; height: auto; }
+.tag .name small { display: none; } .tag:hover .name small { display: inline; }
+.bubble small { display: none; } body.gloss-always .bubble small { display: block; visibility: visible; height: auto; }
+#choices button.GO { --c: #fff3c0; }
+#choices button.GO:nth-of-type(2) { --c: var(--gold); }
+.T { --c: #ffb86b; } .V1, .V2, .V3 { --c: var(--verb); }
+
+/* 언령 게이지 */
+#gauge { position: absolute; top: 5.2em; left: 50%; transform: translateX(-50%); width: 15em; height: .9em; background: #0b1218; border: 2px solid #5b6d78; border-radius: 99px; overflow: hidden; --g: 0; }
+#gauge i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--g)); background: linear-gradient(90deg, #5cc0ff, #ffd24a 60%, #ff6b5e); transition: transform .4s cubic-bezier(.2, 1.4, .4, 1); }
+#gauge b { position: absolute; top: 0; bottom: 0; width: 2px; background: #0b1218; left: 33.33%; } #gauge b + b { left: 66.66%; }
+#gauge:not([data-seg="0"]) { border-color: var(--gold); box-shadow: 0 0 .8em rgba(255, 210, 74, .55); }
+#gauge.full { animation: blink .4s infinite alternate; }
+
+/* 필살기 메뉴 항목 */
+#cmd .item.special { background: linear-gradient(90deg, rgba(255, 210, 74, .28), transparent); border-color: rgba(255, 210, 74, .5); }
+#cmd .item.special .en { color: var(--gold); min-width: 0; text-shadow: 0 0 .5em rgba(255, 210, 74, .8); }
+#cmd .item.special.joint .en { color: #7fe0ff; }
+#ultname { position: absolute; top: 9%; left: 0; right: 0; text-align: center; font-size: 3.2em; font-weight: 700; color: var(--gold); text-shadow: -3px 0 #2a1604, 3px 0 #2a1604, 0 -3px #2a1604, 0 3px #2a1604, 0 0 .6em #ffb347; pointer-events: none; animation: bann 1.6s cubic-bezier(.2, 1.3, .3, 1) both; }
+#ultname small { display: block; font-size: .32em; color: #fff; letter-spacing: .4em; }
+
+/* 합동 언령 덩이 */
+#chunks { position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); width: min(62em, 96vw); text-align: center; }
+#chunks .line { font-size: 1.9em; font-weight: 700; min-height: 1.6em; text-shadow: 0 2px 0 #000; }
+#chunks .line span { color: #6f8494; margin: 0 .15em; } #chunks .line span.in { color: #fff3c0; }
+#chunks .beat { height: 2.6em; display: flex; justify-content: center; align-items: center; }
+#chunks .pulse { width: 1.6em; height: 1.6em; border: .25em solid var(--gold); border-radius: 50%; }
+#chunks .btns, #opening .opts { display: flex; flex-wrap: wrap; gap: .5em; justify-content: center; }
+#chunks .btns button, #opening .opts button { padding: .45em 1em; font-size: 1.35em; font-weight: 700; background: var(--panel); border: 2px solid var(--gold); border-radius: .6em; color: #fff; }
+#chunks .btns button:disabled, #opening .opts button:disabled { opacity: .25; }
+#chunks .btns button.wrong { border-color: #ff6b5e; }
+#chunks p { margin: .5em 0 0; text-shadow: 0 1px 3px #000; }
+kbd { display: inline-block; font: inherit; font-size: .65em; color: #10161c; background: var(--gold); border-radius: .3em; padding: 0 .4em; margin-right: .5em; vertical-align: middle; }
+
+/* 선창 */
+#opening { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(6, 10, 12, .55); }
+#opening .box { width: min(34em, 92vw); padding: 1.1em 1.4em 1.2em; background: #14222c; border: 2px solid var(--gold); border-radius: 1em; text-align: center; animation: bub .3s cubic-bezier(.2, 1.4, .4, 1); }
+#opening h3 { margin: 0 0 .5em; font-size: 1.5em; color: var(--gold); letter-spacing: .3em; }
+#opening .timer { height: .6em; background: #0b1218; border-radius: 99px; overflow: hidden; margin-bottom: 1em; }
+#opening .timer i { display: block; height: 100%; background: linear-gradient(90deg, #ff6b5e, #ffd24a); transform-origin: left; }
+#opening.no-timer .timer { visibility: hidden; }
+#opening .q { min-height: 13em; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .8em; }
+#opening .ask { margin: 0; font-size: 1.1em; }
+#opening .again { font-size: 1.3em; background: var(--panel); border: 2px solid var(--line); border-radius: .5em; padding: .1em .4em; }
+#opening .qpic { width: 7em; height: 7em; object-fit: contain; image-rendering: pixelated; }
+#opening .opts.pics button { padding: .5em; }
+#opening .line { font-size: 1.6em; font-weight: 700; } #opening .line span { color: #6f8494; margin: 0 .15em; } #opening .line span.in { color: #fff3c0; }
+#opening .typing { font-size: 2.6em; font-weight: 700; letter-spacing: .25em; } #opening .typing .in { color: #fff3c0; } #opening .typing .cur { color: var(--gold); animation: blink .4s infinite alternate; }
+#opening .reveal { display: flex; flex-direction: column; align-items: center; gap: .2em; font-size: 1.5em; }
+#opening .reveal.ok b { color: #9bf28a; } #opening .reveal.no b { color: #ff8a8a; } #opening .reveal small { font-size: .6em; color: var(--dim); }
+#opening .dots { display: flex; gap: .5em; justify-content: center; margin-top: .9em; }
+#opening .dots i { width: .9em; height: .9em; border-radius: 50%; background: #2a3944; } #opening .dots i.ok { background: #9bf28a; } #opening .dots i.no { background: #ff6b5e; }

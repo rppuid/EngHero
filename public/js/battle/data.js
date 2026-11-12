@@ -26,7 +26,7 @@ export const INTO = {
   behindRock: { en: 'behind the rock', ko: '바위 뒤로' },
   nextToTree: { en: 'next to the tree', ko: '나무 옆으로' },
 };
-export const TIMES = { 2: { en: 'two times', ko: '두 번' }, 3: { en: 'three times', ko: '세 번' } };
+export const TIMES = { 2: { en: 'two times', ko: '두 번 (안정)' }, 3: { en: 'three times', ko: '세 번 (마지막은 빗나갈 수 있음)' } };
 
 // 동사(공격 종류)의 우리말
 export const VERB_KO = { cut: '베기', push: '밀기', jump: '뛰기', burn: '불', freeze: '얼음', shoot: '쏘기' };
@@ -55,30 +55,30 @@ export const HEROES = {
 // 적. weak: 약점(동사 또는 형용사). resist: 잘 안 통하는 동사. lines: 학년군별 대사(a: 3~4학년군, b: 5~6학년군)
 export const ENEMIES = {
   wolf: {
-    name: '불 늑대', noun: 'wolf', hp: 260, atk: 21, def: 5, spd: 11, shield: 4, scale: 1,
-    weak: ['freeze', 'shoot', 'wet'], resist: ['burn'], states: ['hot'], fixedStates: ['hot'],
+    name: '불 늑대', noun: 'wolf', hp: 190, atk: 21, def: 5, spd: 11, shield: 3, scale: 1,
+    weak: ['freeze', 'shoot', 'wet', 'kick'], resist: ['burn'], states: ['hot'], fixedStates: ['hot'],
     moves: [
-      { id: 'bite', w: 5, en: { a: 'Bite!', b: 'I will bite you!' }, ko: '물어뜯기' },
-      { id: 'fire', w: 3, charge: true, en: { a: 'Big fire!', b: 'I will burn you all!' }, ko: '큰 불', warn: { a: 'Hot! Hot!', b: 'I am getting hot…' }, warnKo: '숨을 크게 들이쉰다' },
+      { id: 'bite', w: 5, en: { a: 'Bite!', b: 'You should run!' }, ko: '물어뜯기' },
+      { id: 'fire', w: 3, charge: true, en: { a: 'Big fire!', b: 'Burn, all of you!' }, ko: '큰 불', warn: { a: 'Hot! Hot!', b: 'I am going to burn you all!' }, warnKo: '숨을 크게 들이쉰다' },
       { id: 'howl', w: 2, en: { a: 'I am angry!', b: 'Now I am very angry!' }, ko: '울부짖기' },
     ],
     hurt: { a: 'Ouch!', b: 'That hurts!' }, broken: { a: 'Oh no…', b: 'I can not move…' },
   },
   slime: {
-    name: '파란 슬라임', noun: 'slime', hp: 78, atk: 13, def: 2, spd: 8, shield: 2, scale: 1,
+    name: '파란 슬라임', noun: 'slime', hp: 62, atk: 13, def: 2, spd: 8, shield: 2, scale: 1,
     weak: ['cut', 'hot'], resist: ['push'], states: ['blue'], fixedStates: ['blue'],
     moves: [
-      { id: 'tackle', w: 5, en: { a: 'Jump!', b: 'I will jump on you!' }, ko: '몸통 박치기' },
+      { id: 'tackle', w: 5, en: { a: 'Jump!', b: 'I am going to jump on you!' }, ko: '몸통 박치기' },
       { id: 'hide', w: 2, en: { a: 'Hide!', b: 'I will hide behind the rock!' }, ko: '숨기' },
     ],
     hurt: { a: 'Mmm!', b: 'Mmmph!' }, broken: { a: '…', b: '…' },
   },
   mushroom: {
-    name: '졸린 버섯', noun: 'mushroom', hp: 86, atk: 12, def: 2, spd: 7, shield: 2, scale: 1,
+    name: '졸린 버섯', noun: 'mushroom', hp: 66, atk: 12, def: 2, spd: 7, shield: 2, scale: 1,
     weak: ['burn', 'shoot'], resist: ['freeze'], states: ['red'], fixedStates: ['red'],
     moves: [
       { id: 'tackle', w: 4, en: { a: 'Jump!', b: 'I will jump on you!' }, ko: '몸통 박치기' },
-      { id: 'sleep', w: 3, en: { a: 'Sleep…', b: 'You are sleepy…' }, ko: '졸음 가루' },
+      { id: 'sleep', w: 3, en: { a: 'Sleep…', b: 'You have to sleep now…' }, ko: '졸음 가루' },
     ],
     hurt: { a: 'Mmm!', b: 'Mmmph!' }, broken: { a: '…', b: '…' },
   },
@@ -100,4 +100,32 @@ export const GRADES = {
   4: { band: 'a', gloss: 'always', speak: 'auto' },
   5: { band: 'b', gloss: 'hover', speak: 'auto' },
   6: { band: 'b', gloss: 'hover', speak: 'auto' },
+};
+
+// 꾸미는 말이 대상의 실제 상태와 맞았을 때의 작전 효과 (engine.js가 읽는다)
+export const DESC_FX = {
+  cold: { ko: '얼음 깨기', note: '물리 공격 1.5배' },
+  wet: { ko: '번지기', note: '얼음이 옆의 적에게도' },
+  hot: { ko: '불붙이기', note: '불 1.4배' },
+  sleepy: { ko: '급소', note: '반드시 치명타, 깨우지 않음' },
+  angry: { ko: '빈틈', note: '방어 무시' },
+  small: { ko: '날리기', note: '차례를 뒤로 민다' },
+  big: { ko: '큰 표적', note: '1.25배' },
+  blue: { ko: '정확히 지목', note: '1.15배' }, green: { ko: '정확히 지목', note: '1.15배' }, red: { ko: '정확히 지목', note: '1.15배' },
+};
+
+// 개인 필살기. slots: V3 동사 셋 / N 대상 / X 만들 상태 / P 위치
+export const ULTS = {
+  maru: { name: 'Rune Slash', ko: '룬 연격', text: '{V1}, {V2} and {V3} the {N}', slots: ['N', 'V1', 'V2', 'V3'], verbs: ['cut', 'push', 'jump', 'hit', 'kick'] },
+  muji: { name: 'Rainbow Burst', ko: '무지개 폭발', text: 'Make everything {X}', slots: ['X'] },
+  naru: { name: 'True Shot', ko: '꿰뚫는 화살', text: 'Shoot the {N} {P}', slots: ['N', 'P'] },
+};
+export const VERB_EN = { cut: 'Cut', push: 'Push', jump: 'Jump on', hit: 'Hit', kick: 'Kick' };
+export const VERB_KO2 = { cut: '베다', push: '밀다', jump: '뛰어오르다', hit: '치다', kick: '차다' };
+
+// 합동 언령: 낱말 덩이를 순서대로
+export const JOINT = {
+  wolf: ['Throw', 'the cold water', 'on the wolf', 'right now!'],
+  slime: ['Cut', 'the little slime', 'in the water', 'right now!'],
+  mushroom: ['Burn', 'the red mushroom', 'next to the tree', 'right now!'],
 };

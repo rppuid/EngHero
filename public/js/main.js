@@ -25,7 +25,7 @@ function onEnd(res, st) {
   const r = $('#result'); r.hidden = false;
   r.querySelector('h2').textContent = res === 'win' ? '승리!' : '쓰러졌다…';
   const last = st.sentences.slice(-3).map((s) => `<dd class="en">${s}</dd>`).join('');
-  r.querySelector('dl').innerHTML = `<dt>걸린 차례</dt><dd>${st.turns}</dd><dt>Perfect</dt><dd>${st.perfect}</dd><dt>방패 깨뜨리기</dt><dd>${st.breaks}</dd><dt>가장 큰 한 방</dt><dd>${st.maxHit}</dd>${last}`;
+  r.querySelector('dl').innerHTML = `<dt>걸린 차례</dt><dd>${st.turns}</dd><dt>Perfect</dt><dd>${st.perfect}</dd><dt>방패 깨뜨리기</dt><dd>${st.breaks}</dd><dt>써 본 낱말</dt><dd>${st.newWords}</dd><dt>가장 큰 한 방</dt><dd>${st.maxHit}</dd>${last}`;
 }
 
 let started = false;
@@ -33,7 +33,8 @@ $('#start').onclick = (e) => {
   if (started) return; started = true; e.currentTarget.blur(); e.currentTarget.disabled = true;
   initAudio(); sfx.ok();
   scene.grade = GRADES[gradeNo]; scene.battle.grade = GRADES[gradeNo]; scene.battle.band = GRADES[gradeNo].band;
-  document.body.classList.toggle('gloss-hover', GRADES[gradeNo].gloss === 'hover');
+  scene.gradeNo = gradeNo;
+  document.body.classList.toggle('gloss-always', GRADES[gradeNo].band === 'a');
   $('#title').classList.add('out');
   scene.run();
 };

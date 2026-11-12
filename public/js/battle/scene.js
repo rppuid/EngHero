@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { clock, tick, tween, tweenReal, wait, waitReal, hitstop, slowmo, E, rnd } from '../core/time.js';
 import { Battle } from './engine.js';
 import { UI } from './ui.js';
-import { ADJ, PREP, SKILLS, ENCOUNTER } from './data.js';
+import { ADJ, PREP, SKILLS, ENCOUNTER, JOINT, DESC_FX } from './data.js';
+import { iconImg } from '../gfx/icons.js';
 import { Actor, PX } from '../gfx/actor.js';
 import { CameraRig } from '../gfx/camera.js';
 import { makePost } from '../gfx/post.js';
@@ -12,12 +13,7 @@ import { Fx } from '../gfx/fx.js';
 import { sfx, speak, startMusic, stopMusic, duck } from '../audio.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const JOINT = {
-  wolf: ['Throw', 'the cold', 'water', 'on the wolf!'],
-  slime: ['Cut', 'the little', 'slime', 'right now!'],
-  mushroom: ['Burn', 'the red', 'mushroom', 'right now!'],
-};
-const TYPE_COLOR = { cut: 0xbfe9ff, push: 0xffe2a8, jump: 0xfff1c0, burn: 0xff8a3c, freeze: 0x8fdcff, shoot: 0xfff3c0, bite: 0xff6a6a, hit: 0xffffff, joint: 0xffffff };
+const TYPE_COLOR = { cut: 0xbfe9ff, push: 0xffe2a8, jump: 0xfff1c0, burn: 0xff8a3c, freeze: 0x8fdcff, shoot: 0xfff3c0, bite: 0xff6a6a, hit: 0xffffff, joint: 0xffffff, hit: 0xfff1c0, kick: 0xffd27a, paint: 0xff9af0 };
 
 export class BattleScene {
   constructor(canvas, grade, onEnd) {
@@ -89,11 +85,28 @@ export class BattleScene {
       this.fN = 0; this.fT = 0;
     }
     for (const a of this.actors.values()) a.update(dt);
+    this.ambient(dt);
     this.fx.update(); this.stage.update();
     this.rig.apply(dt); this.post.update(dt);
     this.ui.frame();
     this.post.render();
     requestAnimationFrame((t) => this.frame(t));
+  }
+
+  // 상태를 글자 대신 모습으로: 차가우면 서리, 뜨거우면 불티, 젖으면 물방울, 졸리면 Z, 화나면 김
+  ambient(dt) {
+    this.ambT = (this.ambT || 0) + clock.dt; if (this.ambT < 0.16 || !this.battle) return; this.ambT = 0;
+    for (const u of this.battle.units) {
+      if (!u.alive) continue; const a = this.A(u); if (!a.group.visible) continue;
+      const c = a.center; const w = 0.9 * a.scale;
+      const at = () => ({ x: c.x + rnd(-w, w), y: c.y + rnd(-0.6, 0.9), z: c.z + 0.1 });
+      const st = u.states;
+      if (st.has('cold')) this.fx.p(at(), { x: rnd(-0.2, 0.2), y: -0.5 }, { color: 0xffffff, color2: 0x7fd4ff, life: 0.9, size: 0.09, g: 0.6, floor: false });
+      if (st.has('hot') && Math.random() < 0.7) this.fx.p({ x: c.x + rnd(-w, w), y: c.y + 0.3, z: c.z + 0.1 }, { x: rnd(-0.3, 0.3), y: rnd(1, 2.2) }, { color: 0xfff2a0, color2: 0xe8401e, life: 0.7, size: 0.08, g: -1, floor: false });
+      if (st.has('wet')) this.fx.p({ x: c.x + rnd(-w, w), y: c.y + 0.2, z: c.z + 0.1 }, { x: 0, y: -0.2 }, { color: 0x9fd8ff, color2: 0x4aa8ff, life: 0.6, size: 0.08, g: 9 });
+      if (st.has('angry') && Math.random() < 0.6) this.fx.p({ x: c.x + rnd(-0.3, 0.3), y: a.top.y - 0.2, z: c.z + 0.1 }, { x: rnd(-0.6, 0.6), y: rnd(1.5, 2.5) }, { color: 0xff4d6a, color2: 0xffffff, life: 0.5, size: 0.12, g: -1, floor: false });
+      if (st.has('sleepy') && Math.random() < 0.25) this.ui.pop(a.top, 'z', 'note', rnd(-10, 30), 20);
+    }
   }
 
   // ── 진행 ──────────────────────────────────────────────
@@ -106,7 +119,12 @@ export class BattleScene {
     sfx.growl();
     await rig.to('wide', 1.7, E.inOut);
     ui.banner('BATTLE!', '영어로 명령하라');
-    await waitReal(0.7);
+    await waitReal(0.9);
+    ui.setGauge(0);
+    // 선창: 이번 전투의 낱말로 짧게 겨룬다. 잘하면 이점, 못해도 불이익은 없다
+    const op = await ui.opening(this.gradeNo || 4, speak);
+    await this.playAll(battle.opening(op.score >= 1 && op.fast ? 1 : Math.min(0.9, op.score)));
+    ui.refresh(); await waitReal(0.5);
     while (!battle.over()) {
       const u = battle.next();
       ui.order(u);
@@ -124,16 +142,19 @@ export class BattleScene {
         a.play('walk_left', { fps: 12, loop: true });
         tween(0.22, (k) => a.group.position.lerpVectors(a.home, stepIn, k), E.outQuad).then(() => a.rest());
         const cmd = await ui.command(u, { onTarget: (t) => this.aim(t) });
+        this.acting = u;
         if (cmd.defend) await this.playAll(battle.defend(u));
+        else if (cmd.joint) await this.joint(battle.unit(cmd.target));
+        else if (cmd.ult) await this.heroUlt(u, cmd);
         else await this.heroAct(u, cmd);
         tween(0.2, (k) => a.group.position.lerp(a.home, k));
       } else {
         await this.enemyTurn(u);
       }
       ui.refresh();
-      if (this.jointTarget) {
-        const tg = this.jointTarget; this.jointTarget = null;
-        if (tg.alive && battle.live('hero').length >= 2 && !battle.over()) await this.joint(tg);
+      if (this.chaseTarget) {
+        const tg = this.chaseTarget; this.chaseTarget = null;
+        if (tg.alive && !battle.over()) await this.chase(tg, u);
       }
       rig.to('wide', 0.5);
       await wait(0.25);
@@ -175,6 +196,7 @@ export class BattleScene {
     const { battle, ui, rig } = this;
     const s = SKILLS[cmd.skill];
     const tokens = ui.tokens(cmd.skill, cmd.f, ui.lastActive, null).map((t) => ({ w: t.w, c: t.c }));
+    for (let i = tokens.length - 1; i >= 0; i--) if (!tokens[i].w) tokens.splice(i, 1);
     tokens[tokens.length - 1].w += '!';
     this.q = battle.act(u, cmd.skill, cmd.f, cmd.voice);
     const say = this.q.shift();
@@ -390,9 +412,19 @@ export class BattleScene {
     const a = e.u && this.A(e.u);
     switch (e.t) {
       case 'desc': {
-        if (e.ok) { sfx.perfect(); ui.pop(a.top, `Perfect! <i>${e.word}</i>`, 'good', 0, -30); fx.burst(a.top, 10, { color: 0x9bf28a, speed: 4, life: 0.5, size: 0.08, g: 4 }); }
-        else { sfx.miss(); ui.pop(a.top, `Not ${e.word}…`, 'bad', 0, -30); }
-        await wait(0.18); break;
+        if (e.ok) {
+          sfx.perfect(); ui.pop(a.top, `Perfect! <i>${e.word}</i>`, 'good', 0, -30);
+          if (e.kind === 'A' && DESC_FX[e.word]) ui.pop(a.top, DESC_FX[e.word].ko, 'fx', 0, 2);
+          fx.burst(a.top, 10, { color: 0x9bf28a, speed: 4, life: 0.5, size: 0.08, g: 4 });
+          await wait(0.18);
+        } else {
+          sfx.miss(); ui.missed.add(e.word); if (e.truth) ui.missed.add(e.truth);
+          // 감점은 없다. 지금 모습에 맞는 낱말을 그림과 함께 보여 준다
+          if (e.truth) ui.pop(a.top, `${e.kind === 'A' ? iconImg(e.truth) : ''}${e.truth}`, 'hint', 0, -26);
+          if (e.kind === 'P') fx.ring(a.center, { size: 3, color: 0xfff3c0, dur: 0.6 });
+          await wait(0.55);
+        }
+        break;
       }
       case 'covered': ui.pop(a.top, PREP[e.u.spot].en, 'bad', 0, -8); break;
       case 'hit': this.onHit(e, a); break;
@@ -422,6 +454,14 @@ export class BattleScene {
         ui.refresh(); ui.pop(a.top, PREP[e.spot].en, 'note');
         await wait(0.2); break;
       }
+      case 'gauge': ui.setGauge(e.gauge); break;
+      case 'opening': { if (e.level === 2) { sfx.perfect(); ui.banner('FIRST!', '선공 · 약점 발견 · 목소리 +1'); await waitReal(0.9); } else if (e.level === 1) { sfx.weak(); ui.banner('HINT!', '약점 하나 발견'); await waitReal(0.8); } break; }
+      case 'hint': { ui.refresh(); ui.pulse(e.u, '.weak'); break; }
+      case 'fresh': { if (this.acting) ui.pop(this.A(this.acting).top, 'New word!', 'good', 0, 10); break; }
+      case 'stale': { ui.pop(a.top, '같은 말은 힘이 빠진다', 'note', 0, 34); break; }
+      case 'whiff': { sfx.whoosh(); ui.pop(a.top, 'Miss!', 'bad'); await wait(0.2); break; }
+      case 'spread': { sfx.ice(); fx.ice(a.group.position, 0.8); await wait(0.12); break; }
+      case 'ultSay': break;
       case 'delay': ui.pop(a.top, '차례가 밀렸다', 'note', 0, 26); ui.order(null); break;
       case 'reveal': { e.u.showIntent = true; ui.refresh(); e.u.weak.forEach((_, i) => setTimeout(() => sfx.word(i), i * 90)); break; }
       case 'cover': ui.pop(a.top, PREP[e.spot].en, 'good'); break;
@@ -481,7 +521,7 @@ export class BattleScene {
     ui.banner('BREAK!', '방패가 깨졌다'); ui.refresh();
     rig.to(rig.focus(a.center, { dist: 8.2, side: 1.2, fov: 27 }), 0.25, E.outCubic);
     a.idle = false; a.kbT = (a.kbT || 0) + 1; a.set({ gray: 0.55, lean: -4, sy: 0.93 });
-    this.jointTarget = e.u;
+    this.chaseTarget = e.u;
     await slowmo(0.22, 0.65);
   }
 
@@ -495,7 +535,7 @@ export class BattleScene {
       fx.burst(a.center, 50, { color: 0xffffff, color2: 0xb06aff, speed: 9, life: 0.9, size: 0.15, g: -2, floor: false });
       fx.glow(a.center, { size: 3, color: 0xffffff, dur: 0.5 });
       await tween(0.4, (k) => { a.body.scale.set(a.scale * (1 + k * 0.5), a.scale * (1 - k), 1); a.shadow.material.opacity = 1 - k; }, E.inQuad);
-      a.group.visible = false; if (this.jointTarget === e.u) this.jointTarget = null;
+      a.group.visible = false; if (this.chaseTarget === e.u) this.chaseTarget = null;
     } else {
       a.set({ lean: 0, sx: 1, sy: 1 });
       await a.play('down', { fps: 7, hold: true });
@@ -537,35 +577,134 @@ export class BattleScene {
     }
   }
 
-  // ── 합동 언령 ───────────────────────────────────────────
+  // ── 추격: BREAK 직후 다음 동료의 한 방 (버튼 한 번) ────────────────
+  async chase(tg, by) {
+    const { ui, fx, rig, battle } = this;
+    const h = battle.live('hero').find((x) => x !== by) || battle.live('hero')[0]; if (!h) return;
+    const a = this.A(h), t = this.A(tg);
+    ui.pop(a.top, '추격!', 'good');
+    const g = await ui.rhythm([{ w: 'Now!', color: '#ffd24a' }], { lead: 0.75 });
+    a.idle = false; sfx.dash(); a.frame('attack', 2);
+    await this.dash(a, t.group.position.clone().add(V(this.reach(t) + 0.5, 0, 0.12)), 0.1);
+    a.frame('attack', 3); sfx.slash(); fx.slash(t.center, { rot: 2.2, size: 3, color: 0xffe27a });
+    await this.playAll(battle.chase(h, tg, g));
+    await wait(0.18);
+    await this.goHome(a); a.idle = true; a.rest();
+  }
+
+  // 필살기 공통 도입: 시간 멈춤 → 검은 띠 → 컷인 → 기술 이름 → 문장
+  async ultIntro(u, name, ko, tokens, text) {
+    const { ui, post, rig } = this; const a = this.A(u);
+    duck(0.07); sfx.voice(5); sfx.charge();
+    tweenReal(0.25, (k) => { post.u.bars.value = k; post.u.dim.value = 0.45 * k; });
+    ui.cutin(`assets/art/bust/${u.uid}_bust_angry.webp`, u.color);
+    const n = document.getElementById('ultname'); n.hidden = true; void n.offsetWidth; n.innerHTML = `${name}<small>${ko}</small>`; n.hidden = false;
+    hitstop(0.5);
+    await waitReal(0.85);
+    n.hidden = true;
+    ui.shout(tokens); speak(text);
+    // 준비: 바닥의 룬 문양과 모여드는 빛, 낮게 다가가는 카메라
+    const p = a.group.position;
+    rig.to({ pos: [p.x * 0.7 - 1.4, 1.5, 9.2], look: [p.x * 0.75 - 1.0, 1.7, 0], fov: 31 }, 0.5, E.outCubic);
+    a.idle = false; a.frame('attack', 1);
+    const col = new THREE.Color(u.color).getHex();
+    for (let i = 0; i < 5; i++) {
+      this.fx.ring(V(p.x, 0, p.z), { flat: true, size: 3.4 - i * 0.3, color: col, dur: 0.45 });
+      this.fx.aura(p, i % 2 ? 0xffffff : col, 12); this.stage.light(col, 6 + i * 2, a.center);
+      await waitReal(0.1);
+    }
+    tweenReal(0.3, (k) => { post.u.dim.value = 0.45 * (1 - k * 0.5); });
+  }
+  async ultOutro() {
+    const { ui, post } = this;
+    slowmo(0.3, 0.45);
+    await waitReal(0.75);
+    ui.shoutOff();
+    tweenReal(0.3, (k) => { post.u.bars.value = 1 - k; post.u.dim.value = 0.22 * (1 - k); });
+    duck(0.22);
+  }
+
+  // ── 개인 필살기 ─────────────────────────────────────────
+  async heroUlt(u, cmd) {
+    const { ui, fx, rig, post, battle } = this; const def = cmd.ult; const a = this.A(u);
+    const tokens = ui.tokens(def, cmd.f, def.slots, null).filter((t) => t.w).map((t) => ({ w: t.w, c: t.c }));
+    tokens[tokens.length - 1].w += '!';
+    this.q = battle.ult(u, cmd.f);
+    await this.handle(this.q.shift());
+    const say = this.q.shift();
+    await this.ultIntro(u, def.name, def.ko, tokens, say.text);
+    if (u.kind === 'maru') {
+      const t = this.A(battle.unit(cmd.f.N));
+      this.shotOn(a, t, { dist: 12.4 });
+      sfx.dash(); a.frame('attack', 2);
+      await this.dash(a, t.group.position.clone().add(V(this.reach(t) + 0.5, 0, 0.12)), 0.1);
+      for (let i = 0; i < 3; i++) {
+        a.frame('attack', 2); await wait(0.06); a.frame('attack', 3); sfx.slash();
+        fx.slash(t.center, { rot: [-0.7, 2.4, -1.6][i], size: 3.4 + i * 0.8, color: 0x7fd4ff });
+        fx.streak(V(t.center.x + 2.5, t.center.y + [1.2, -0.8, 0][i], t.center.z), V(t.center.x - 2.5, t.center.y - [1.2, -0.8, 0][i], t.center.z), 0xbfe9ff, 0.35, 0.3);
+        if (i === 2) { post.u.flash.value = 0.7; fx.ring(t.center, { size: 9, color: 0x7fd4ff, dur: 0.6 }); }
+        if (!(await this.strike())) break;
+        await wait(i === 2 ? 0.25 : 0.14);
+      }
+      await this.flush(); a.frame('attack', 5);
+      await this.goHome(a);
+    } else if (u.kind === 'muji') {
+      rig.to('wide', 0.4);
+      a.frame('attack', 2); await wait(0.08); a.frame('attack', 3); sfx.paint();
+      const col = new THREE.Color(ADJ[cmd.f.X].color).getHex();
+      // 무지갯빛 물감 파도가 무대를 가로지른다
+      const cols = [0xff5a6a, 0xffc23a, 0x5ad36a, 0x4aa8ff, 0xb06aff];
+      await tween(0.45, (k) => { const x = a.group.position.x - k * 12; for (let i = 0; i < 6; i++) fx.p({ x: x + rnd(-0.4, 0.4), y: rnd(0.1, 3.2), z: rnd(-2.5, 2.5) }, { x: rnd(-3, 0), y: rnd(-1, 3) }, { color: cols[i % 5], life: 0.7, size: rnd(0.16, 0.3), g: 3, floor: false }); }, E.lin);
+      post.u.flash.value = 0.6; rig.shake(0.4);
+      for (const tg of battle.live('enemy')) { fx.paint(this.A(tg).center, col); if (!(await this.strike())) break; await wait(0.12); }
+      await this.flush(); await this.castEnd(a);
+    } else {
+      const t = this.A(battle.unit(cmd.f.N));
+      a.frame('attack', 2); sfx.draw(); await wait(0.15); a.frame('attack', 3);
+      for (let i = 0; i < 4; i++) { fx.glow(a.point('tip'), { size: 0.8 + i * 0.4, color: 0xfff3c0, dur: 0.25 }); await wait(0.07); }
+      sfx.arrow(); sfx.heavy(); rig.punch(3);
+      const from = a.point('tip');
+      fx.streak(from, t.center, 0xffffff, 0.5, 0.45); fx.streak(from, t.center, 0xfff3c0, 1.1, 0.3);
+      this.shotFollow(a, t, 0.16);
+      await this.fx.arrow(from, t.center, { dur: 0.08 });
+      post.u.flash.value = 0.6; fx.ring(t.center, { size: 8, color: 0xfff3c0, dur: 0.6 });
+      await this.flush();
+      a.frame('attack', 4); await wait(0.15);
+    }
+    a.idle = true; a.set({ lean: 0, sx: 1, sy: 1 }); a.rest();
+    await this.ultOutro();
+  }
+
+  // ── 합동 필살기: 박자에 맞춰 낱말 덩이를 순서대로 ──────────────────
   async joint(tg) {
     const { ui, fx, rig, post, battle } = this;
     const t = this.A(tg); const heroes = battle.live('hero');
-    const words = JOINT[tg.kind] || ['Go', 'go', 'go', 'now!'];
+    const words = JOINT[tg.kind] || ['Hit', 'the monster', 'right now!'];
     const cols = ['#ff6b5e', '#5cc0ff', '#ffd24a', '#7fdc6a'];
-    duck(0.1);
-    tweenReal(0.3, (k) => { post.u.bars.value = k; post.u.dim.value = 0.25 * k; });
-    ui.banner('합동 언령', '박자에 맞춰 누르기');
+    duck(0.08);
+    tweenReal(0.3, (k) => { post.u.bars.value = k; post.u.dim.value = 0.3 * k; });
+    const n = document.getElementById('ultname'); n.hidden = true; void n.offsetWidth; n.innerHTML = 'Together!<small>합동 언령</small>'; n.hidden = false;
+    heroes.forEach((h, i) => setTimeout(() => ui.cutin(`assets/art/bust/${h.uid}_bust_angry.webp`, h.color), i * 260));
+    sfx.voice(5);
     rig.to({ pos: [1.6, 1.9, 12.4], look: [-0.8, 1.9, 0], fov: 33 }, 0.6, E.inOut);
-    await waitReal(0.5);
-    const score = await ui.rhythm(words.map((w, i) => ({ w, color: cols[i] })), {
-      onBeat: (i, g) => {
-        const h = heroes[i % heroes.length], a = this.A(h);
-        ui.pop(t.top, g >= 1 ? 'Perfect!' : g >= 0.6 ? 'Good!' : g > 0 ? 'OK' : 'Miss', g >= 0.6 ? 'good' : 'bad', (i - 1.5) * 50, -20);
-        if (!g) { sfx.miss(); return; }
+    await waitReal(0.4 + heroes.length * 0.26);
+    n.hidden = true;
+    const score = await ui.chunks(words, {
+      onStep: (i, g) => {
+        const h = heroes[i % heroes.length], a = this.A(h); const c = new THREE.Color(cols[i % 4]).getHex();
+        ui.pop(t.top, g >= 1 ? 'Perfect!' : g > 0 ? 'Good!' : 'Miss', g > 0 ? 'good' : 'bad', (i - 1.5) * 50, -20);
+        if (!g) return;
         sfx.word(i * 2); sfx.hit(0.6 + g * 0.4);
-        fx.streak(a.center, t.center, new THREE.Color(cols[i]).getHex(), 0.3 + g * 0.3, 0.3);
-        fx.impact(t.center, { color: new THREE.Color(cols[i]).getHex(), power: 0.7 + g * 0.5 });
+        fx.streak(a.center, t.center, c, 0.3 + g * 0.3, 0.3); fx.impact(t.center, { color: c, power: 0.7 + g * 0.5 });
         t.flash(0.08); rig.shake(0.1 + g * 0.1); rig.punch(1 + g); post.u.impact.value = 0.5;
-        tween(0.2, (k) => { a.body.position.y = Math.sin(k * Math.PI) * 0.8; });
+        a.play('shout' in a.sprite.frames ? 'shout' : 'victory', { fps: 12 });
       },
     });
     const sentence = words.join(' ');
-    ui.shout(words.map((w, i) => ({ w, c: ['V', 'A', 'N', 'P'][i] }))); speak(sentence);
+    ui.shout(words.map((w, i) => ({ w, c: ['V', 'A', 'P', 'N'][i] }))); speak(sentence);
     await waitReal(0.45);
-    // 마무리: 모두가 한꺼번에 덮친다
     sfx.dash();
-    await Promise.all(heroes.map((h, i) => { const a = this.A(h); a.idle = false; a.set({ lean: -6 }); a.frame('attack', 3); return this.dash(a, t.group.position.clone().add(V(this.reach(t) + 0.4 + i * 0.6, 0, 0.1 + i * 0.25)), 0.13 + i * 0.03); }));
+    await Promise.all(heroes.map((h, i) => { const a = this.A(h); a.idle = false; a.frame('attack', 3); a.set({ lean: -3 }); return this.dash(a, t.group.position.clone().add(V(this.reach(t) + 0.4 + i * 0.6, 0, 0.1 + i * 0.25)), 0.13 + i * 0.03); }));
     post.u.flash.value = 0.9; hitstop(0.2); sfx.heavy(); sfx.break();
     fx.fire(t.group.position, 1.4); fx.ice(t.group.position, 1.2); fx.ring(t.center, { size: 10, color: 0xffffff, dur: 0.7 });
     fx.slash(t.center, { rot: -0.7, size: 4.5 }); fx.slash(t.center, { rot: 2.4, size: 4.5, color: 0xffe27a });
@@ -575,7 +714,7 @@ export class BattleScene {
     await waitReal(0.7);
     await Promise.all(heroes.map((h) => { const a = this.A(h); return this.goHome(a).then(() => { a.idle = true; a.set({ lean: 0 }); a.rest(); }); }));
     ui.shoutOff(); ui.refresh();
-    tweenReal(0.3, (k) => { post.u.bars.value = 1 - k; post.u.dim.value = 0.25 * (1 - k); });
+    tweenReal(0.3, (k) => { post.u.bars.value = 1 - k; post.u.dim.value = 0.3 * (1 - k); });
     duck(0.22);
   }
 
