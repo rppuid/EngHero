@@ -28,6 +28,17 @@ const Lens = {
         }
         c = acc / w;
       }
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+};
+
+const Grade = {
+  uniforms: { tDiffuse: { value: null }, impact: { value: 0 }, flash: { value: 0 }, dim: { value: 0 }, sat: { value: 1.08 }, bars: { value: 0 } },
+  vertexShader: Lens.vertexShader,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float impact, flash, dim, sat, bars; varying vec2 vUv;
+    void main(){
+      vec2 uv = vUv; vec3 c = texture2D(tDiffuse, uv).rgb;
       vec2 dir = uv - 0.5; float ca = impact * 0.012;
       if (impact > 0.001) { c.r = mix(c.r, texture2D(tDiffuse, uv + dir * ca).r, 0.8); c.b = mix(c.b, texture2D(tDiffuse, uv - dir * ca).b, 0.8); }
       // 색 보정: 그늘은 푸르게, 밝은 곳은 따뜻하게
@@ -57,14 +68,17 @@ export function makePost(renderer, scene, camera) {
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.75, 0.86);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
+  const grade = new ShaderPass(Grade);
+  composer.addPass(grade);
+  // 연출 코드가 쓰는 값들을 한곳에서 꺼내 쓸 수 있게 묶는다
+  const u = { ...grade.uniforms, focus: lens.uniforms.focus, range: lens.uniforms.range, blur: lens.uniforms.blur };
   return {
-    composer, bloom, u: lens.uniforms,
+    composer, bloom, u,
     resize(w, h, pr) { composer.setPixelRatio(pr); composer.setSize(w, h); sceneRT.setSize(Math.round(w * pr), Math.round(h * pr)); lens.uniforms.res.value.set(w * pr, h * pr); },
     update(dt) {
-      const u = lens.uniforms;
       u.impact.value *= Math.exp(-dt * 8);
       u.flash.value *= Math.exp(-dt * 7);
-      u.near.value = camera.near; u.far.value = camera.far;
+      lens.uniforms.near.value = camera.near; lens.uniforms.far.value = camera.far;
     },
     render() { renderer.setRenderTarget(sceneRT); renderer.render(scene, camera); renderer.setRenderTarget(null); composer.render(); },
   };

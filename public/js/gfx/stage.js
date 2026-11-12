@@ -4,13 +4,13 @@ import { clock } from '../core/time.js';
 
 // 자리 이름 → 무대 좌표
 export const SPOTS = {
-  open: [[-3.3, 0, 0.6], [-1.2, 0, 1.6], [-4.6, 0, -0.5]],
-  behindRock: [[-4.75, 0, -1.9]],
+  open: [[-3.0, 0, 0.9], [-1.2, 0, 1.8], [-4.6, 0, -0.3]],
+  behindRock: [[-5.5, 0, -2.5]],
   nextToTree: [[-0.95, 0, -2.3]],
   inWater: [[-1.9, 0, 3.0]],
   party: [[2.4, 0, 1.9], [4.6, 0, 0.5], [6.7, 0, -0.9]],
 };
-export const ROCK = new THREE.Vector3(-5.9, 0, -0.75);
+export const ROCK = new THREE.Vector3(-6.6, 0, -1.2);
 export const TREE = new THREE.Vector3(0.45, 0, -2.9);
 export const POND = new THREE.Vector3(-1.9, 0, 3.05);
 
@@ -162,7 +162,7 @@ export function buildStage(scene) {
     const m = new THREE.Mesh(geo, rockMat); m.scale.setScalar(s); m.position.set(x, 0.2 * s + height(x, z), z); m.rotation.y = r() * 6;
     m.castShadow = m.receiveShadow = true; scene.add(m); blobs.push(new THREE.Vector3(x, z, s * 1.7)); return m;
   };
-  mkRock(ROCK.x, ROCK.z, 0.92, 0.8, 1); mkRock(ROCK.x - 0.95, ROCK.z + 0.6, 0.42, 0.7, 2);
+  mkRock(ROCK.x, ROCK.z, 0.8, 0.75, 1); mkRock(ROCK.x - 0.85, ROCK.z + 0.7, 0.4, 0.7, 2);
   mkRock(8.4, -2.4, 0.75, 0.7, 3); mkRock(-9.6, 3.6, 0.85, 0.7, 4); mkRock(7.8, 4.3, 0.4, 0.6, 5); mkRock(-3.4, -4.6, 0.55, 0.7, 6); mkRock(POND.x + 1.9, POND.z + 0.5, 0.26, 0.6, 7); mkRock(POND.x - 1.8, POND.z - 0.4, 0.2, 0.6, 8);
 
   // ── 나무: 뿌리 쪽이 벌어지고 살짝 휜 줄기 + 화면을 보는 잎 뭉치 수십 장 ────────────
@@ -219,7 +219,7 @@ export function buildStage(scene) {
 
   // ── 풀: 뿌리는 어둡고 끝은 밝은 포기가 바람에 흔들린다 ──────────────────────
   const tuftT = pixTex(24, 24, (g) => { const cols = ['#2c5a2a', '#3f7a35', '#5b9a45', '#86c05a']; for (let i = 0; i < 15; i++) { const x = 2 + Math.floor(r() * 20), hh = 7 + Math.floor(r() * 16), lean = r() < 0.5 ? -1 : 1; for (let y = 0; y < hh; y++) { g.fillStyle = cols[Math.min(3, Math.floor((y / hh) * 3.6 + (i % 3 === 0 ? 0.6 : 0)))]; g.fillRect(x + Math.round((y / hh) ** 2 * 2.5 * lean), 23 - y, y < hh * 0.6 ? 2 : 1, 1); } } });
-  const N = 760;
+  const N = 1500;
   const tuftMat = new THREE.ShaderMaterial({
     uniforms: { map: { value: tuftT }, t: T, fogColor: { value: FOG } },
     vertexShader: `uniform float t; varying vec2 vUv; varying float vFog;
@@ -251,8 +251,8 @@ export function buildStage(scene) {
   gUni.uBlobs.value = Array.from({ length: 24 }, (_, i) => blobs[i] || new THREE.Vector3(0, 0, 0));
 
   // ── 빛 ───────────────────────────────────────────────────────────
-  scene.add(new THREE.HemisphereLight(0xcfe9f2, 0x2c4a34, 0.95));
-  const sun = new THREE.DirectionalLight(0xffe2ac, 2.5);
+  scene.add(new THREE.HemisphereLight(0xcfe9f2, 0x2c4a34, 0.6));
+  const sun = new THREE.DirectionalLight(0xffe2ac, 3.2);
   sun.position.set(7, 13, 8); sun.target.position.set(0, 0, -1);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 12, bottom: -10, near: 1, far: 40 });
