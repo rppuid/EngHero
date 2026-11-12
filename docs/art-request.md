@@ -188,7 +188,45 @@ Imposing but not gory, suitable for children.
 1차 30장이 있으면 전투 프로토타입의 도트 작업과 대화창을 시작할 수 있다.
 그중에서도 **설정화 4장**이 가장 급하다. 도트는 설정화만 있어도 찍을 수 있다.
 
-## 7. 이번 의뢰에 없는 것 (나중에 따로)
+## 7. 2차 의뢰: 적 원화와 움직임
+
+전투 프로토타입의 적(슬라임, 불 늑대)은 도형으로 그린 임시 그림이라 인물과 품질 차이가 크다.
+아래 그림을 받으면 같은 도구(`tools/sprites.py`)로 도트로 옮긴다.
+
+### 적 원화
+
+- 크기 1024 × 1024, 흰색 단색 배경, 파일은 `assets/art/enemy/{id}_full.png`
+- **오른쪽을 보는** 3/4 옆모습 전신(인물과 마주 본다). 바닥 그림자 없음.
+
+공통 화풍(3장)의 첫 줄을 아래로 바꿔 쓴다.
+
+```
+2D fantasy JRPG monster art for a children's educational game. Full body, three-quarter view
+facing right, ready-to-fight pose, whole body visible with margin, no ground shadow.
+```
+
+| id | 묘사 |
+|---|---|
+| `slime` | A round glossy teal-blue jelly slime with big worried eyes and a black X-shaped seal mark over its mouth (its voice was stolen), small and cute, slightly squashed bounce pose. |
+| `wolf` | An ember wolf: a fierce but slightly cute wolf with dark charcoal fur, a mane and tail made of bright orange flames, glowing yellow eyes, small embers around its paws, snarling with fangs. |
+| `tree` | An angry walking tree monster: a thick old trunk with a grumpy face in the bark, glowing green eyes, two branch arms with leafy fists, a round crown of leaves, root legs, a few mushrooms. |
+| `mushroom` | A sleepy mushroom monster with a big red spotted cap, half-closed eyes, tiny feet, puffing purple spores. |
+| `bee` | A giant angry bee with a round fuzzy body, small wings, a big stinger, a black X seal over its mouth. |
+| `boss_bear` | The forest boss: a huge moss-covered bear with a tree growing on its back, a stone mask with no mouth over its face, glowing teal eyes. Imposing but not gory. |
+
+초록 슬라임 같은 색 변종은 저장소에서 색만 바꿔 만든다.
+
+### 움직임 그림 (선택)
+
+지금 인물의 움직임은 한 장의 도트를 부위별로 돌리고(검·활), 기울이고, 천을 펄럭여서 만든다.
+다리가 실제로 뛰는 것처럼 장면마다 다시 그린 움직임은 아니다.
+PixelLab처럼 설정화에서 동작 장면을 뽑아 주는 도구가 있다면 아래를 받아서 그대로 쓸 수 있다.
+
+- 인물별: 대기(4장면), 공격(6장면), 맞음(3장면), 쓰러짐(4장면), 승리(4장면). 필드용 걷기는 4방향 × 6장면.
+- 왼쪽을 보는 방향, 투명 배경, 장면 크기 고정(예: 96 × 96), 가로로 이어 붙인 PNG 한 장.
+- 파일: `assets/art/anim/{id}_{동작}.png`
+
+## 8. 이번 의뢰에 없는 것 (나중에 따로)
 
 - **낱말 아이콘**: 낱말 데이터 표가 완성된 뒤 목록과 지시문을 따로 만든다. 전투에 자주 쓰는 약 50개는 저장소 안에서 직접 찍는다.
 - **보스와 주요 주민**: 월드별 이야기를 확정한 뒤 추가한다.

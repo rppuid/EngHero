@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>영어용사: 잃어버린 언령의 서</title>
+<meta name="description" content="영어 문장으로 명령하는 초등 영어 RPG">
+<meta name="theme-color" content="#16302f">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/jsm/"}}</script>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="ui" hidden>
+  <div id="order"></div>
+  <div id="tags"></div>
+  <div id="pops"></div>
+  <div id="party"></div>
+  <div id="cmd" hidden></div>
+  <div id="builder" hidden>
+    <div id="choices"></div>
+    <div id="sentence"></div>
+  </div>
+  <div id="shout" hidden></div>
+  <div id="banner" hidden></div>
+  <div id="cutin" hidden><img alt=""></div>
+  <div id="rhythm" hidden><div class="track"><div class="goal"></div></div><p>박자에 맞춰 누르기</p></div>
+  <div id="keys"></div>
+  <div class="top-buttons">
+    <button id="btn-sound" type="button" aria-label="소리 켜고 끄기">♪</button>
+    <button id="btn-help" type="button" aria-label="도움말">?</button>
+  </div>
+</div>
+<div id="title">
+  <div class="title-box">
+    <p class="series">용사 시리즈 3</p>
+    <h1>영어용사</h1>
+    <p class="sub">잃어버린 언령의 서</p>
+    <div class="grades" role="radiogroup" aria-label="학년">
+      <button type="button" data-g="3">3학년</button><button type="button" data-g="4">4학년</button><button type="button" data-g="5">5학년</button><button type="button" data-g="6">6학년</button>
+    </div>
+    <button id="start" type="button">전투 시작</button>
+  </div>
+  <footer>Copyright &copy; 2026<span id="current-year"></span> SsamFlow. All rights reserved.</footer>
+</div>
+<div id="result" class="modal" hidden><div class="modal-box"><h2></h2><dl></dl><button id="again" type="button">다시 하기</button></div></div>
+<div id="help" class="modal" hidden><div class="modal-box">
+  <h2>전투 방법</h2>
+  <ul>
+    <li><b>기술</b>을 고르면 영어 문장이 열려요. 빈칸을 채우면 그대로 공격이 됩니다.</li>
+    <li><b>목소리</b>를 쓰면 문장이 길어져요. 꾸미는 말이 대상과 맞으면 <b>Perfect</b>.</li>
+    <li>약점을 찌르면 방패가 깎이고, 0이 되면 <b>BREAK</b>와 합동 언령.</li>
+  </ul>
+  <p class="keyline">↑↓ 고르기 · ←→ 목소리 · Enter 확인 · Esc 뒤로</p>
+  <button id="help-close" type="button">닫기</button>
+</div></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
